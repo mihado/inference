@@ -50,11 +50,14 @@ case "${1:-}" in
     done
     nano_cid="$(docker compose ps -q nano 2>/dev/null || true)"
     if [[ -n "$nano_cid" ]]; then
+      # vLLM takes --model; the live container is the truth, not .env.
+      nano_model="$(docker inspect "$nano_cid" --format '{{join .Config.Cmd " "}}' 2>/dev/null |
+        sed -E 's/.*--model ([^ ]+).*/\1/')"
       nano_state="$(docker inspect "$nano_cid" --format '{{.State.Status}}' 2>/dev/null)"
     else
+      nano_model="$(grep -E "^MODEL_NANO=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)"
       nano_state="stopped"
     fi
-    nano_model="$(grep -E "^MODEL_NANO=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)"
     printf 'nano  %-52s  %s\n' "${nano_model:-<compose default>}" "${nano_state:-unknown}"
     ;;
   load)
