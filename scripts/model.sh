@@ -34,9 +34,17 @@ set_env() {
 case "${1:-}" in
   status)
     for n in 1 2 3 4; do
-      model="$(grep -E "^MODEL_${n}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)"
-      state="$(docker compose ps "hf-${n}" --format '{{.Status}}' 2>/dev/null || true)"
-      printf 'hf-%s  %-30s  %s\n' "$n" "${model:-<compose default>}" "${state:-stopped}"
+      cid="$(docker compose ps -q "hf-${n}" 2>/dev/null || true)"
+      if [[ -n "$cid" ]]; then
+        # The live container's --model-id is the truth, not .env.
+        model="$(docker inspect "$cid" --format '{{join .Config.Cmd " "}}' 2>/dev/null |
+          sed -E 's/.*--model-id ([^ ]+).*/\1/')"
+        state="$(docker inspect "$cid" --format '{{.State.Status}}' 2>/dev/null)"
+      else
+        model="$(grep -E "^MODEL_${n}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)"
+        state="stopped"
+      fi
+      printf 'hf-%s  %-52s  %s\n' "$n" "${model:-<compose default>}" "${state:-unknown}"
     done
     ;;
   load)
