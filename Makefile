@@ -1,10 +1,13 @@
 # Wrappers over docker compose and scripts/model.sh.
 ROUTER_PORT ?= 8100
 
-.PHONY: up down status models health logs load unload run stop
+.PHONY: up up-full down status models health logs load unload run stop
 
 up: ## build (router) and start both servers
 	docker compose up -d --build
+
+up-full: ## start both servers plus every extra slot (bake-off)
+	docker compose --profile full up -d --build
 
 down: ## stop and remove the stack
 	docker compose down

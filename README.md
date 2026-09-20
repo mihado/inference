@@ -22,6 +22,30 @@ The two servers are:
 - At fp32, TEI runs out of memory.
 - vLLM runs the model at bf16, and the vectors are correct.
 
+## Profiles
+
+Two services start by default: `reranker` and `nano`. Five more are optional:
+
+| Service | Port | GPU | Model |
+| --- | --- | --- | --- |
+| `bge-reranker` | 8081 | 0 | `BAAI/bge-reranker-v2-m3` |
+| `ms-marco` | 8082 | 0 | `cross-encoder/ms-marco-MiniLM-L6-v2` |
+| `gte-multilingual` | 8083 | 0 | `Alibaba-NLP/gte-multilingual-reranker-base` |
+| `granite-reranker` | 8084 | 0 | `ibm-granite/granite-embedding-reranker-english-r2` |
+| `qwen-embed` | 8085 | 0 | `Qwen/Qwen3-Embedding-0.6B` |
+
+The optional services stay off until you enable the `full` profile:
+
+```sh
+make up-full                                   # both defaults, plus all extras
+docker compose --profile full up -d --build    # the same
+docker compose --profile full stop             # stop the extras only
+```
+
+They use GPU 0. The router finds them with no config change, because it lists
+all labelled containers. Use them to compare rerankers. The MVP needs only
+`reranker` and `nano`.
+
 ## Quick start
 
 1. Create the model cache.

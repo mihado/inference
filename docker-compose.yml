@@ -3,7 +3,8 @@ name: inference
 # Two model servers on a 2x RTX A4000 box, fronted by a model-aware router:
 # one TEI reranker and one vLLM embedder (voyage-4-nano). Both use GPU 1, so
 # GPU 0 stays free. One host weight cache is shared. The model of each service
-# is an .env variable. See README.md.
+# is an .env variable. The `full` profile adds the four other rerankers and the
+# Qwen3 embedder on GPU 0. See README.md.
 
 x-tei: &tei
   image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
@@ -121,3 +122,119 @@ services:
             - driver: nvidia
               device_ids: ["${GPU_NANO:-1}"]
               capabilities: [gpu]
+
+  # --- Optional extras: docker compose --profile full up -d ---------------
+  # The four other rerankers from the bake-off, plus the Qwen3 embedder. They
+  # stay off unless you enable the `full` profile, and they all use GPU 0,
+  # which the default two services leave free. Use them to compare rerankers.
+  # The MVP needs only `reranker` and `nano`.
+  bge-reranker:
+    <<: *tei
+    profiles: ["full"]
+    command:
+      - --model-id
+      - ${MODEL_BGE_RERANKER:-BAAI/bge-reranker-v2-m3}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "64"
+      - --max-batch-tokens
+      - "8192"
+    ports:
+      - "${PORT_BGE_RERANKER:-8081}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
+  ms-marco:
+    <<: *tei
+    profiles: ["full"]
+    command:
+      - --model-id
+      - ${MODEL_MS_MARCO:-cross-encoder/ms-marco-MiniLM-L6-v2}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "64"
+      - --max-batch-tokens
+      - "8192"
+    ports:
+      - "${PORT_MS_MARCO:-8082}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
+  gte-multilingual:
+    <<: *tei
+    profiles: ["full"]
+    command:
+      - --model-id
+      - ${MODEL_GTE_MULTILINGUAL:-Alibaba-NLP/gte-multilingual-reranker-base}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "64"
+      - --max-batch-tokens
+      - "8192"
+    ports:
+      - "${PORT_GTE_MULTILINGUAL:-8083}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
+  granite-reranker:
+    <<: *tei
+    profiles: ["full"]
+    command:
+      - --model-id
+      - ${MODEL_GRANITE_RERANKER:-ibm-granite/granite-embedding-reranker-english-r2}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "64"
+      - --max-batch-tokens
+      - "8192"
+    ports:
+      - "${PORT_GRANITE_RERANKER:-8084}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
+  qwen-embed:
+    <<: *tei
+    profiles: ["full"]
+    command:
+      - --model-id
+      - ${MODEL_QWEN_EMBED:-Qwen/Qwen3-Embedding-0.6B}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "128"
+      - --max-batch-tokens
+      - "8192"
+    ports:
+      - "${PORT_QWEN_EMBED:-8085}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
