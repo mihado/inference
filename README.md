@@ -18,8 +18,20 @@ TEI loads one model at startup, so a swap is a recreate — `scripts/model.sh` w
 ```sh
 scripts/model.sh status
 scripts/model.sh load 2 BAAI/bge-reranker-v2-m3   # set + (re)start hf-2
-scripts/model.sh unload 2                          # stop hf-2, freeing VRAM
+scripts/model.sh unload 2                         # stop hf-2, freeing VRAM
 ```
+
+## Router (one endpoint for all slots)
+
+`router/` is a small dependency-free proxy that fronts the four slots as **one** base URL (`:8090`): `GET /v1/models` returns the union of every running slot's model, and `POST /v1/embeddings` / `/rerank` are dispatched by the requested model to the slot serving it. Model→slot comes from each container's `/info`, re-scanned on a TTL, so a swapped slot is picked up automatically.
+
+```sh
+curl -s localhost:8090/v1/models
+curl -s localhost:8090/v1/embeddings -H 'content-type: application/json' \
+  -d '{"model":"Qwen/Qwen3-Embedding-0.6B","input":["A brewer may sell beer."]}'
+```
+
+Traefik (or any HTTP proxy) can't dispatch on a JSON body, which is why this exists; it also only adds TLS/ingress, so a plain reverse proxy in front is enough if you need that. Clients then configure **one** provider pointing at the router instead of one per slot.
 
 ## Prerequisites
 

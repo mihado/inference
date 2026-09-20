@@ -20,6 +20,23 @@ x-tei: &tei
     start_period: 600s
 
 services:
+  # One model-aware front for the slots: reports their union of models and
+  # routes each call by the requested model. Point a single client provider at
+  # this instead of one per slot. See router/index.mjs.
+  router:
+    build: ./router
+    restart: unless-stopped
+    environment:
+      PORT: "80"
+      BACKENDS: "http://hf-1:80,http://hf-2:80,http://hf-3:80,http://hf-4:80"
+    ports:
+      - "${ROUTER_PORT:-8090}:80"
+    depends_on:
+      - hf-1
+      - hf-2
+      - hf-3
+      - hf-4
+
   hf-1:
     <<: *tei
     command:
