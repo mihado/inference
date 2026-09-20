@@ -6,7 +6,7 @@ name: inference
 
 services:
   tei-4b:
-    image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9}
+    image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
     restart: unless-stopped
     command:
       - --model-id
@@ -38,7 +38,7 @@ services:
       start_period: 600s
 
   tei-06b:
-    image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9}
+    image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
     restart: unless-stopped
     command:
       - --model-id

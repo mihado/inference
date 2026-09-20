@@ -27,7 +27,7 @@ Both default to **GPU 1**; the 4B (~8 GB fp16) plus the 0.6B (~1.2 GB) fit in on
   docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi   # verify
   ```
 
-- **Image tag = GPU compute capability.** RTX A4000 is Ampere 8.6 → `86-1.9`. The generic `1.9` is sm_80 (A100/A30): it runs on sm_86 but is not tuned. Map: `1.9`=sm80, `86-1.9`=sm86, `89-1.9`=sm89, `hopper-1.9`, `turing-1.9` (needs `USE_FLASH_ATTENTION=True`).
+- **Image tag = GPU compute capability.** RTX A4000 is Ampere 8.6 → `86-1.9.1`. The generic `1.9` is sm_80 (A100/A30): it runs on sm_86 but is not tuned. Map: `1.9`=sm80, `86-1.9.1`=sm86, `89-1.9.1`=sm89, `hopper-1.9.1`, `turing-1.9.1` (needs `USE_FLASH_ATTENTION=True`). The 1.9.x images are CUDA 12.9-based (driver ≥ 575). If TEI logs `CUDA_ERROR_SYSTEM_DRIVER_MISMATCH` and falls back to CPU, the tag's CUDA/driver combo is off — `cuda-1.9.1` is a known-good fallback.
 
 ## Run
 
