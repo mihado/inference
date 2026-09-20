@@ -1,70 +1,105 @@
 name: inference
 
-# Text Embeddings Inference servers for a 2× RTX A4000 box.
-# Two instances, one model each, weights shared from a single host cache.
-# See README.md for the runbook (toolkit setup, image tags, diagnostics).
+# Four Hugging Face Inference (TEI) slots on a 2x RTX A4000 box.
+# Slots 1-2 pin GPU 0, slots 3-4 pin GPU 1. Each mounts one shared host weight
+# cache. The model per slot is an .env variable, so scripts/model.sh can swap a
+# slot by recreating just that container. See README.md.
+
+x-tei: &tei
+  image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
+  restart: unless-stopped
+  environment:
+    HUGGINGFACE_HUB_CACHE: /data
+  volumes:
+    - ${HF_CACHE:-$HOME/.hf-cache}:/data
+  healthcheck:
+    test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/health || exit 1"]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 600s
 
 services:
-  tei-4b:
-    image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
-    restart: unless-stopped
+  hf-1:
+    <<: *tei
     command:
       - --model-id
-      - Qwen/Qwen3-Embedding-4B
+      - ${MODEL_1:-Qwen/Qwen3-Embedding-0.6B}
       - --dtype
       - float16
       - --max-client-batch-size
       - "128"
       - --max-batch-tokens
       - "32768"
-    environment:
-      HUGGINGFACE_HUB_CACHE: /data
-    volumes:
-      - ${HF_CACHE:-$HOME/.hf-cache}:/data
     ports:
-      - "${TEI_4B_PORT:-8080}:80"
+      - "${PORT_1:-8080}:80"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["${TEI_GPU_4B:-1}"]
+              device_ids: ["${GPU_1:-0}"]
               capabilities: [gpu]
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 600s
 
-  tei-06b:
-    image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
-    restart: unless-stopped
+  hf-2:
+    <<: *tei
     command:
       - --model-id
-      - Qwen/Qwen3-Embedding-0.6B
+      - ${MODEL_2:-BAAI/bge-reranker-v2-m3}
       - --dtype
       - float16
       - --max-client-batch-size
       - "128"
       - --max-batch-tokens
       - "32768"
-    environment:
-      HUGGINGFACE_HUB_CACHE: /data
-    volumes:
-      - ${HF_CACHE:-$HOME/.hf-cache}:/data
     ports:
-      - "${TEI_06B_PORT:-8081}:80"
+      - "${PORT_2:-8081}:80"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["${TEI_GPU_06B:-1}"]
+              device_ids: ["${GPU_2:-0}"]
               capabilities: [gpu]
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 600s
+
+  hf-3:
+    <<: *tei
+    command:
+      - --model-id
+      - ${MODEL_3:-Qwen/Qwen3-Embedding-4B}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "128"
+      - --max-batch-tokens
+      - "32768"
+    ports:
+      - "${PORT_3:-8082}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_3:-1}"]
+              capabilities: [gpu]
+
+  hf-4:
+    <<: *tei
+    command:
+      - --model-id
+      - ${MODEL_4:-voyageai/voyage-4-nano}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "128"
+      - --max-batch-tokens
+      - "32768"
+    ports:
+      - "${PORT_4:-8083}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_4:-1}"]
+              capabilities: [gpu]

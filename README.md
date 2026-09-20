@@ -1,13 +1,25 @@
 # inference
 
-Text Embeddings Inference (TEI) servers for a 2× RTX A4000 box. Two instances run one embedding model each — `Qwen/Qwen3-Embedding-4B` and `Qwen/Qwen3-Embedding-0.6B` — and share a single Hugging Face weight cache on the host.
+Text Embeddings Inference (TEI) slots for a 2× RTX A4000 box. Four containers, each serving one Hugging Face model (embeddings or a reranker), sharing a single host weight cache.
 
-| service | model | dims | port |
+| slot | port | GPU | default model |
 | --- | --- | --- | --- |
-| `tei-4b` | `Qwen/Qwen3-Embedding-4B` | 2560 | 8080 |
-| `tei-06b` | `Qwen/Qwen3-Embedding-0.6B` | 1024 | 8081 |
+| `hf-1` | 8080 | 0 | `Qwen/Qwen3-Embedding-0.6B` |
+| `hf-2` | 8081 | 0 | `BAAI/bge-reranker-v2-m3` |
+| `hf-3` | 8082 | 1 | `Qwen/Qwen3-Embedding-4B` |
+| `hf-4` | 8083 | 1 | `voyageai/voyage-4-nano` |
 
-Both default to **GPU 1**; the 4B (~8 GB fp16) plus the 0.6B (~1.2 GB) fit in one 16 GB A4000, leaving GPU 0 free.
+Slots 1–2 pin GPU 0, slots 3–4 GPU 1. **GPU 0 also runs Ollama (~8.5 GB)**, so keep slots 1–2 small (0.6B, reranker); GPU 1 (16 GB) fits the 4B (~8 GB) plus another small model.
+
+## Swapping models
+
+TEI loads one model at startup, so a swap is a recreate — `scripts/model.sh` writes the model into `.env` and recreates just that slot:
+
+```sh
+scripts/model.sh status
+scripts/model.sh load 2 BAAI/bge-reranker-v2-m3   # set + (re)start hf-2
+scripts/model.sh unload 2                          # stop hf-2, freeing VRAM
+```
 
 ## Prerequisites
 
@@ -92,6 +104,8 @@ Every instance bind-mounts the same host directory to `/data` (`HF_CACHE`, defau
 - `--max-batch-tokens` should be the largest value the model tolerates before it becomes compute-bound; TEI cannot infer it. Defaults: `--max-batch-tokens 16384`, `--max-client-batch-size 32`.
 - `--served-model-name` sets the OpenAI-compatible model alias; unset means the Hugging Face id is the served name.
 
-## Other models
+## Models
 
-`voyageai/voyage-4-nano` (340M) is TEI-supported under the Qwen3 type, but its config carries `num_labels: 2048` and bidirectional attention — check the served dims via `/info` before assuming 1024. Re-rankers (e.g. `BAAI/bge-reranker-large`) run the same way on a third port if needed.
+- **Embeddings:** any TEI text-embeddings model (Nomic, BERT, XLM-RoBERTa, GTE, Qwen2/3, Gemma3, …).
+- **Rerankers:** TEI serves BERT/XLM-RoBERTa sequence-classification cross-encoders, e.g. `BAAI/bge-reranker-v2-m3` (568M, multilingual) — the sane default. BAAI's larger v2 rerankers (`v2-gemma`, `v2-minicpm-layerwise`) are LLM decoders; TEI's rerank surface does not serve them, so run those on a generation server.
+- `voyageai/voyage-4-nano` is TEI-supported under the Qwen3 type, but its config carries `num_labels: 2048`; check the served dims via `/info` before assuming 1024.
