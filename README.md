@@ -10,11 +10,11 @@ Text Embeddings Inference (TEI) slots for a 2× RTX A4000 box. Each container se
 | `hf-2` | 8081 | 0 | `BAAI/bge-reranker-v2-m3` |
 | `hf-3` | 8082 | 0 | `cross-encoder/ms-marco-MiniLM-L6-v2` |
 | `hf-4` | 8083 | 0 | `Alibaba-NLP/gte-multilingual-reranker-base` |
-| `hf-5` | 8084 | 1 | `Qwen/Qwen3-Embedding-0.6B` |
-| `hf-6` | 8085 | 1 | `voyageai/voyage-4-nano` |
-| `hf-7` | 8086 | 0 | `ibm-granite/granite-embedding-reranker-english-r2` |
+| `hf-5` | 8084 | 0 | `ibm-granite/granite-embedding-reranker-english-r2` |
+| `hf-6` | 8085 | 1 | `Qwen/Qwen3-Embedding-0.6B` |
+| `hf-7` | 8086 | 1 | `voyageai/voyage-4-nano` |
 
-Slots 1–4 and 7 pin GPU 0 (the rerankers), 5–6 GPU 1 (the embedders). Placement is per-slot (`GPU_<n>`): any assignment works as long as the models fit the card. More slots can be added freely — see Ad-hoc slots.
+Slots 1–5 pin GPU 0 (the rerankers), 6–7 GPU 1 (the embedders). Placement is per-slot (`GPU_<n>`): any assignment works as long as the models fit the card. More slots can be added freely — see Ad-hoc slots.
 
 ## Quick start
 

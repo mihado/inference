@@ -135,7 +135,7 @@ services:
     <<: *tei
     command:
       - --model-id
-      - ${MODEL_5:-Qwen/Qwen3-Embedding-0.6B}
+      - ${MODEL_5:-ibm-granite/granite-embedding-reranker-english-r2}
       - --dtype
       - float16
       - --max-client-batch-size
@@ -149,14 +149,14 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["${GPU_5:-1}"]
+              device_ids: ["${GPU_5:-0}"]
               capabilities: [gpu]
 
   hf-6:
     <<: *tei
     command:
       - --model-id
-      - ${MODEL_6:-voyageai/voyage-4-nano}
+      - ${MODEL_6:-Qwen/Qwen3-Embedding-0.6B}
       - --dtype
       - float16
       - --max-client-batch-size
@@ -177,7 +177,7 @@ services:
     <<: *tei
     command:
       - --model-id
-      - ${MODEL_7:-ibm-granite/granite-embedding-reranker-english-r2}
+      - ${MODEL_7:-voyageai/voyage-4-nano}
       - --dtype
       - float16
       - --max-client-batch-size
@@ -191,5 +191,5 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["${GPU_7:-0}"]
+              device_ids: ["${GPU_7:-1}"]
               capabilities: [gpu]
