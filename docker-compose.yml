@@ -112,11 +112,9 @@ services:
 
   hf-4:
     <<: *tei
-    # Qwen3-Reranker converted to a sequence-classification head, so TEI can
-    # serve it (the raw Qwen3-Reranker is a decoder TEI rejects).
     command:
       - --model-id
-      - ${MODEL_4:-tomaarsen/Qwen3-Reranker-0.6B-seq-cls}
+      - ${MODEL_4:-Alibaba-NLP/gte-multilingual-reranker-base}
       - --dtype
       - float16
       - --max-client-batch-size
@@ -179,7 +177,7 @@ services:
     <<: *tei
     command:
       - --model-id
-      - ${MODEL_7:-jinaai/jina-reranker-v2-base-multilingual}
+      - ${MODEL_7:-ibm-granite/granite-embedding-reranker-english-r2}
       - --dtype
       - float16
       - --max-client-batch-size

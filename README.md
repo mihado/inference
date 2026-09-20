@@ -9,10 +9,10 @@ Text Embeddings Inference (TEI) slots for a 2× RTX A4000 box. Each container se
 | `hf-1` | 8080 | 0 | `Alibaba-NLP/gte-reranker-modernbert-base` |
 | `hf-2` | 8081 | 0 | `BAAI/bge-reranker-v2-m3` |
 | `hf-3` | 8082 | 0 | `cross-encoder/ms-marco-MiniLM-L6-v2` |
-| `hf-4` | 8083 | 0 | `tomaarsen/Qwen3-Reranker-0.6B-seq-cls` |
+| `hf-4` | 8083 | 0 | `Alibaba-NLP/gte-multilingual-reranker-base` |
 | `hf-5` | 8084 | 1 | `Qwen/Qwen3-Embedding-0.6B` |
 | `hf-6` | 8085 | 1 | `voyageai/voyage-4-nano` |
-| `hf-7` | 8086 | 0 | `jinaai/jina-reranker-v2-base-multilingual` |
+| `hf-7` | 8086 | 0 | `ibm-granite/granite-embedding-reranker-english-r2` |
 
 Slots 1–4 and 7 pin GPU 0 (the rerankers), 5–6 GPU 1 (the embedders). Placement is per-slot (`GPU_<n>`): any assignment works as long as the models fit the card. More slots can be added freely — see Ad-hoc slots.
 
@@ -142,4 +142,4 @@ Every instance bind-mounts the same host directory to `/data` (`HF_CACHE`, defau
 ## Models
 
 - **Embeddings:** any TEI text-embeddings model (Nomic, BERT, XLM-RoBERTa, GTE, Qwen2/3, Gemma3, …).
-- **Rerankers:** TEI serves sequence-classification cross-encoders (BERT, XLM-RoBERTa, GTE, ModernBERT), e.g. `BAAI/bge-reranker-v2-m3`. Generative/decoder rerankers — BAAI `v2-gemma`, `v2-minicpm-layerwise`, `Qwen/Qwen3-Reranker` — and custom architectures (`nvidia/llama-nemotron-rerank-1b-v2`, `JinaForRanking`) are **not** served by TEI; run those on a generation server. `tomaarsen/Qwen3-Reranker-0.6B-seq-cls` is a sequence-classification conversion that may load.
+- **Rerankers:** TEI serves sequence-classification cross-encoders (BERT, XLM-RoBERTa, GTE, ModernBERT), e.g. `BAAI/bge-reranker-v2-m3`. Generative/decoder rerankers — BAAI `v2-gemma`, `v2-minicpm-layerwise`, `Qwen/Qwen3-Reranker` — and custom architectures (`nvidia/llama-nemotron-rerank-1b-v2`, `JinaForRanking`) are **not** served by TEI; run those on a generation server. TEI's Qwen3 support is embeddings-only, so no Qwen3 reranker loads; `jinaai/jina-reranker-v2-base-multilingual` fails TEI's config parse (`missing field model_type`).
