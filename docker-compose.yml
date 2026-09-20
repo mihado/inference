@@ -1,9 +1,10 @@
 name: inference
 
-# Seven Hugging Face Inference (TEI) slots on a 2x RTX A4000 box, fronted by a
-# model-aware router. Slots 1-4 and 7 pin GPU 0 (rerankers), 5-6 pin GPU 1
-# (embedders). Each mounts one shared host weight cache; the model per slot is an
-# .env variable so scripts/model.sh (or `make load`) can swap it. See README.md.
+# Six Hugging Face Inference (TEI) slots and one vLLM embedder on a 2x RTX A4000
+# box, fronted by a model-aware router. Slots 1-5 pin GPU 0 (rerankers); hf-6 and
+# the nano vLLM service pin GPU 1 (embedders). Each mounts one shared host weight
+# cache; the model per slot is an .env variable so scripts/model.sh (or `make
+# load`) can swap it. See README.md.
 
 x-tei: &tei
   image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
@@ -31,7 +32,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "80"
-      BACKENDS: "http://hf-1:80,http://hf-2:80,http://hf-3:80,http://hf-4:80,http://hf-5:80,http://hf-6:80,http://hf-7:80"
+      BACKENDS: "http://hf-1:80,http://hf-2:80,http://hf-3:80,http://hf-4:80,http://hf-5:80,http://hf-6:80,http://nano:80"
     ports:
       - "${ROUTER_PORT:-8100}:80"
     volumes:
@@ -45,7 +46,7 @@ services:
       - hf-4
       - hf-5
       - hf-6
-      - hf-7
+      - nano
 
   hf-1:
     <<: *tei
@@ -173,23 +174,58 @@ services:
               device_ids: ["${GPU_6:-1}"]
               capabilities: [gpu]
 
-  hf-7:
-    <<: *tei
+  # voyage-4-nano is a bf16 model with custom bidirectional pooling: under TEI
+  # it overflows to all-NaN vectors at fp16 and OOMs at fp32. vLLM runs it at its
+  # native bfloat16 with a controlled memory budget, so it gets its own runtime.
+  # `--runner pooling` serves it over the same OpenAI /v1/embeddings surface.
+  nano:
+    image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-v0.16.0}
+    restart: unless-stopped
+    # Same backend label: the router discovers it and dispatches by model id.
+    labels:
+      - tei.backend=1
+    # vLLM uses /dev/shm for its worker; the default 64m is too small.
+    ipc: host
+    environment:
+      HUGGINGFACE_HUB_CACHE: /data
+    volumes:
+      - ${HF_CACHE:-$HOME/.hf-cache}:/data
     command:
-      - --model-id
-      - ${MODEL_7:-voyageai/voyage-4-nano}
+      - --model
+      - ${MODEL_NANO:-voyageai/voyage-4-nano}
+      - --served-model-name
+      - ${MODEL_NANO:-voyageai/voyage-4-nano}
+      - --runner
+      - pooling
+      - --trust-remote-code
+      - --hf-overrides
+      - '{"architectures":["VoyageQwen3BidirectionalEmbedModel"]}'
       - --dtype
-      - float32
-      - --max-client-batch-size
-      - "32"
-      - --max-batch-tokens
+      - bfloat16
+      - --max-model-len
       - "32768"
+      - --gpu-memory-utilization
+      - "${NANO_GPU_MEMORY:-0.5}"
+      - --enforce-eager
+      - --port
+      - "80"
     ports:
-      - "${PORT_7:-8086}:80"
+      - "${PORT_NANO:-8086}:80"
+    healthcheck:
+      # vLLM's image has python3 but not necessarily curl.
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/health')\" || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 900s
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["${GPU_7:-1}"]
+              device_ids: ["${GPU_NANO:-1}"]
               capabilities: [gpu]

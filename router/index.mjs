@@ -6,9 +6,10 @@
 //
 //   BACKENDS="http://hf-1:80,http://hf-2:80,..." node index.mjs
 //
-// Model -> backend comes from each container's TEI /info (`{ model_id }`),
-// re-scanned on a TTL. Traefik cannot dispatch on a JSON body, which is why
-// this exists; put TLS/ingress in front of it if you need it.
+// Model -> backend comes from each container's TEI /info (`{ model_id }`) or,
+// for OpenAI-shaped servers like vLLM, its /v1/models list; re-scanned on a TTL.
+// Traefik cannot dispatch on a JSON body, which is why this exists; put
+// TLS/ingress in front of it if you need it.
 
 import { createServer, request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
@@ -70,11 +71,27 @@ async function scan() {
   const bases = [...new Set([...BACKENDS, ...discovered])];
   await Promise.all(
     bases.map(async (base) => {
+      // TEI answers /info with the single model it serves.
       try {
         const response = await fetch(`${base}/info`, { signal: AbortSignal.timeout(5_000) });
+        if (response.ok) {
+          const body = await response.json();
+          if (typeof body?.model_id === "string") {
+            found.set(body.model_id, base);
+            return;
+          }
+        }
+      } catch {
+        // Fall through to the OpenAI list probe.
+      }
+      // vLLM (and other OpenAI-shaped servers) answer /v1/models instead.
+      try {
+        const response = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(5_000) });
         if (!response.ok) return;
         const body = await response.json();
-        if (typeof body?.model_id === "string") found.set(body.model_id, base);
+        for (const entry of Array.isArray(body?.data) ? body.data : []) {
+          if (typeof entry?.id === "string" && entry.id.length > 0) found.set(entry.id, base);
+        }
       } catch {
         // A backend being down is not fatal: it just is not routable.
       }

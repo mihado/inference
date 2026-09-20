@@ -1,20 +1,22 @@
 # inference
 
-Text Embeddings Inference (TEI) slots for a 2× RTX A4000 box. Each container serves one Hugging Face model (an embedder or a reranker); a small router fronts them all as one endpoint. One host weight cache is shared.
+Inference slots for a 2× RTX A4000 box: TEI for the rerankers and Qwen3 embedder, vLLM for `voyage-4-nano` (which needs bf16). A small router fronts them all as one endpoint. One host weight cache is shared.
 
 ## Slots
 
-| slot | port | GPU | default model |
-| --- | --- | --- | --- |
-| `hf-1` | 8080 | 0 | `Alibaba-NLP/gte-reranker-modernbert-base` |
-| `hf-2` | 8081 | 0 | `BAAI/bge-reranker-v2-m3` |
-| `hf-3` | 8082 | 0 | `cross-encoder/ms-marco-MiniLM-L6-v2` |
-| `hf-4` | 8083 | 0 | `Alibaba-NLP/gte-multilingual-reranker-base` |
-| `hf-5` | 8084 | 0 | `ibm-granite/granite-embedding-reranker-english-r2` |
-| `hf-6` | 8085 | 1 | `Qwen/Qwen3-Embedding-0.6B` |
-| `hf-7` | 8086 | 1 | `voyageai/voyage-4-nano` |
+| slot | port | GPU | runtime | default model |
+| --- | --- | --- | --- | --- |
+| `hf-1` | 8080 | 0 | TEI | `Alibaba-NLP/gte-reranker-modernbert-base` |
+| `hf-2` | 8081 | 0 | TEI | `BAAI/bge-reranker-v2-m3` |
+| `hf-3` | 8082 | 0 | TEI | `cross-encoder/ms-marco-MiniLM-L6-v2` |
+| `hf-4` | 8083 | 0 | TEI | `Alibaba-NLP/gte-multilingual-reranker-base` |
+| `hf-5` | 8084 | 0 | TEI | `ibm-granite/granite-embedding-reranker-english-r2` |
+| `hf-6` | 8085 | 1 | TEI | `Qwen/Qwen3-Embedding-0.6B` |
+| `nano` | 8086 | 1 | vLLM | `voyageai/voyage-4-nano` |
 
-Slots 1–5 pin GPU 0 (the rerankers), 6–7 GPU 1 (the embedders). Placement is per-slot (`GPU_<n>`): any assignment works as long as the models fit the card. More slots can be added freely — see Ad-hoc slots.
+Slots `hf-1`–`hf-5` pin GPU 0 (the rerankers); `hf-6` and `nano` pin GPU 1 (the embedders). Placement is per-slot (`GPU_<n>`): any assignment works as long as the models fit the card. More slots can be added freely — see Ad-hoc slots.
+
+`nano` is vLLM rather than TEI because `voyage-4-nano` is a bf16 checkpoint whose custom bidirectional pooling overflows to all-NaN vectors at TEI's fp16 and OOMs at fp32. vLLM runs it at its native bfloat16 with a bounded memory budget; it is configured in `docker-compose.yml` (not a `MODEL_<n>` TEI slot — see Changing models).
 
 ## Quick start
 
@@ -30,7 +32,7 @@ Only **one** port needs to be reachable from outside the box: the router on **81
 
 ## Router
 
-`router/` is a dependency-free proxy that fronts every slot as one base URL (`:8100`): `GET /v1/models` returns the union of the slots' models, and `POST /v1/embeddings` / `/rerank` are dispatched by the requested model to the slot serving it. Model→slot is read from each container's `/info` on a TTL, so a swapped or newly-started slot is picked up automatically.
+`router/` is a dependency-free proxy that fronts every slot as one base URL (`:8100`): `GET /v1/models` returns the union of the slots' models, and `POST /v1/embeddings` / `/rerank` are dispatched by the requested model to the slot serving it. Model→slot is read from each container's TEI `/info`, or a vLLM slot's `/v1/models`, on a TTL — so a swapped or newly-started slot is picked up automatically.
 
 ```sh
 curl -s localhost:8100/v1/models
