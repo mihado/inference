@@ -1,0 +1,70 @@
+name: tei
+
+# Text Embeddings Inference servers for a 2× RTX A4000 box.
+# Two instances, one model each, weights shared from a single host cache.
+# See README.md for the runbook (toolkit setup, image tags, diagnostics).
+
+services:
+  tei-4b:
+    image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9}
+    restart: unless-stopped
+    command:
+      - --model-id
+      - Qwen/Qwen3-Embedding-4B
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "128"
+      - --max-batch-tokens
+      - "32768"
+    environment:
+      HUGGINGFACE_HUB_CACHE: /data
+    volumes:
+      - ${HF_CACHE:-$HOME/.hf-cache}:/data
+    ports:
+      - "${TEI_4B_PORT:-8080}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${TEI_GPU_4B:-1}"]
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 600s
+
+  tei-06b:
+    image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9}
+    restart: unless-stopped
+    command:
+      - --model-id
+      - Qwen/Qwen3-Embedding-0.6B
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "128"
+      - --max-batch-tokens
+      - "32768"
+    environment:
+      HUGGINGFACE_HUB_CACHE: /data
+    volumes:
+      - ${HF_CACHE:-$HOME/.hf-cache}:/data
+    ports:
+      - "${TEI_06B_PORT:-8081}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${TEI_GPU_06B:-1}"]
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 600s
