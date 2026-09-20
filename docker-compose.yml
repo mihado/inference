@@ -16,7 +16,7 @@ x-tei: &tei
   volumes:
     - ${HF_CACHE:-$HOME/.hf-cache}:/data
   healthcheck:
-    test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/health || exit 1"]
+    test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:80/health || exit 1"]
     interval: 30s
     timeout: 10s
     retries: 5
