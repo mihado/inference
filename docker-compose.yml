@@ -105,11 +105,11 @@ services:
 
   hf-4:
     <<: *tei
-    # Decoder reranker: TEI's rerank surface (BERT/XLM-R/GTE/ModernBERT)
-    # may reject it. Swap the slot if it fails to load.
+    # Qwen3-Reranker converted to a sequence-classification head, so TEI can
+    # serve it (the raw Qwen3-Reranker is a decoder TEI rejects).
     command:
       - --model-id
-      - ${MODEL_4:-Qwen/Qwen3-Reranker-0.6B}
+      - ${MODEL_4:-tomaarsen/Qwen3-Reranker-0.6B-seq-cls}
       - --dtype
       - float16
       - --max-client-batch-size
@@ -170,11 +170,9 @@ services:
 
   hf-7:
     <<: *tei
-    # Cross-encoder, but a custom llama_bidirec architecture TEI likely
-    # does not support. Swap the slot if it fails to load.
     command:
       - --model-id
-      - ${MODEL_7:-nvidia/llama-nemotron-rerank-1b-v2}
+      - ${MODEL_7:-jinaai/jina-reranker-v2-base-multilingual}
       - --dtype
       - float16
       - --max-client-batch-size
