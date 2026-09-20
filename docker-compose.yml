@@ -1,9 +1,9 @@
 name: inference
 
-# Six Hugging Face Inference (TEI) slots on a 2x RTX A4000 box, fronted by a
-# model-aware router. Slots 1-4 pin GPU 0 (rerankers), 5-6 pin GPU 1 (embedders).
-# Each mounts one shared host weight cache; the model per slot is an .env
-# variable so scripts/model.sh (or `make load`) can swap it. See README.md.
+# Seven Hugging Face Inference (TEI) slots on a 2x RTX A4000 box, fronted by a
+# model-aware router. Slots 1-4 and 7 pin GPU 0 (rerankers), 5-6 pin GPU 1
+# (embedders). Each mounts one shared host weight cache; the model per slot is an
+# .env variable so scripts/model.sh (or `make load`) can swap it. See README.md.
 
 x-tei: &tei
   image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: "80"
-      BACKENDS: "http://hf-1:80,http://hf-2:80,http://hf-3:80,http://hf-4:80,http://hf-5:80,http://hf-6:80"
+      BACKENDS: "http://hf-1:80,http://hf-2:80,http://hf-3:80,http://hf-4:80,http://hf-5:80,http://hf-6:80,http://hf-7:80"
     ports:
       - "${ROUTER_PORT:-8090}:80"
     depends_on:
@@ -38,6 +38,7 @@ services:
       - hf-4
       - hf-5
       - hf-6
+      - hf-7
 
   hf-1:
     <<: *tei
@@ -165,4 +166,27 @@ services:
           devices:
             - driver: nvidia
               device_ids: ["${GPU_6:-1}"]
+              capabilities: [gpu]
+
+  hf-7:
+    <<: *tei
+    # Cross-encoder, but a custom llama_bidirec architecture TEI likely
+    # does not support. Swap the slot if it fails to load.
+    command:
+      - --model-id
+      - ${MODEL_7:-nvidia/llama-nemotron-rerank-1b-v2}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "128"
+      - --max-batch-tokens
+      - "32768"
+    ports:
+      - "${PORT_7:-8086}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_7:-0}"]
               capabilities: [gpu]

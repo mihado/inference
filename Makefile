@@ -1,6 +1,6 @@
 # Convenience wrappers over docker compose + scripts/model.sh.
 ROUTER_PORT ?= 8090
-SLOTS := 1 2 3 4 5 6
+SLOTS := 1 2 3 4 5 6 7
 
 .PHONY: up down status models health logs load unload
 

@@ -10,6 +10,7 @@ Text Embeddings Inference (TEI) slots for a 2× RTX A4000 box. Four containers, 
 | `hf-4` | 8083 | 0 | `Qwen/Qwen3-Reranker-0.6B` (decoder; TEI may reject) |
 | `hf-5` | 8084 | 1 | `Qwen/Qwen3-Embedding-0.6B` |
 | `hf-6` | 8085 | 1 | `voyageai/voyage-4-nano` |
+| `hf-7` | 8086 | 0 | `nvidia/llama-nemotron-rerank-1b-v2` (custom arch; TEI may reject) |
 
 Slots 1–4 pin GPU 0 (the rerankers), slots 5–6 GPU 1 (the embedders). Placement is per-slot (`GPU_<n>`), so any assignment works as long as the models fit the card. `make status` shows the live model per slot.
 
