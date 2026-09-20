@@ -2,8 +2,8 @@
 # Load / unload / swap the model on one of the four inference slots.
 #
 #   scripts/model.sh status
-#   scripts/model.sh load <slot 1-4> <model-id>     # set model + (re)start the slot
-#   scripts/model.sh unload <slot 1-4>              # stop the slot, freeing VRAM
+#   scripts/model.sh load <slot 1-6> <model-id>     # set model + (re)start the slot
+#   scripts/model.sh unload <slot 1-6>              # stop the slot, freeing VRAM
 #
 # A swap is a recreate: TEI loads one model at startup, so changing the model
 # means stopping the container and starting it again with a new --model-id.
@@ -15,7 +15,7 @@ cd "$ROOT"
 ENV_FILE="$ROOT/.env"
 
 usage() {
-  echo "usage: scripts/model.sh status | load <slot 1-4> <model-id> | unload <slot 1-4>" >&2
+  echo "usage: scripts/model.sh status | load <slot 1-6> <model-id> | unload <slot 1-6>" >&2
   exit 2
 }
 
@@ -33,7 +33,7 @@ set_env() {
 
 case "${1:-}" in
   status)
-    for n in 1 2 3 4; do
+    for n in 1 2 3 4 5 6; do
       cid="$(docker compose ps -q "hf-${n}" 2>/dev/null || true)"
       if [[ -n "$cid" ]]; then
         # The live container's --model-id is the truth, not .env.
@@ -51,7 +51,7 @@ case "${1:-}" in
     [[ $# -eq 3 ]] || usage
     slot="$2"
     model="$3"
-    [[ "$slot" =~ ^[1-4]$ ]] || { echo "slot must be 1-4" >&2; exit 2; }
+    [[ "$slot" =~ ^[1-6]$ ]] || { echo "slot must be 1-4" >&2; exit 2; }
     set_env "MODEL_${slot}" "$model"
     docker compose up -d --force-recreate "hf-${slot}"
     echo "hf-${slot} -> ${model}"
@@ -59,7 +59,7 @@ case "${1:-}" in
   unload)
     [[ $# -eq 2 ]] || usage
     slot="$2"
-    [[ "$slot" =~ ^[1-4]$ ]] || { echo "slot must be 1-4" >&2; exit 2; }
+    [[ "$slot" =~ ^[1-6]$ ]] || { echo "slot must be 1-4" >&2; exit 2; }
     docker compose stop "hf-${slot}"
     echo "hf-${slot} stopped"
     ;;
