@@ -1,18 +1,21 @@
-// Model-aware reverse proxy for a pool of TEI containers.
+// Model-aware reverse proxy for a pool of single-model backends.
 //
-// One endpoint that fronts N single-model TEI servers: it reports the union of
-// their models and dispatches each /v1/embeddings and /rerank call to the
-// container serving the requested model. Dependency-free (node:http + fetch).
+// One endpoint that fronts N single-model servers (TEI and OpenAI-shaped, e.g.
+// vLLM): it reports the union of their models and dispatches each
+// /v1/embeddings and /rerank call to the server serving the requested model.
+// Dependency-free (node:http + fetch).
 //
 //   BACKENDS="http://hf-1:80,http://hf-2:80,..." node index.mjs
 //
-// Model -> backend comes from each container's TEI /info (`{ model_id }`) or,
-// for OpenAI-shaped servers like vLLM, its /v1/models list; re-scanned on a TTL.
+// Model -> backend comes from each server's TEI /info (`{ model_id }`) or, for
+// OpenAI-shaped servers like vLLM, its /v1/models list; re-scanned on a TTL.
 // Traefik cannot dispatch on a JSON body, which is why this exists; put
 // TLS/ingress in front of it if you need it.
 
 import { createServer, request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
+
+import { openAiModelIds, teiModelId } from "./backends.mjs";
 
 const PORT = Number(process.env.PORT ?? 80);
 const BACKENDS = (process.env.BACKENDS ?? "")
@@ -20,6 +23,8 @@ const BACKENDS = (process.env.BACKENDS ?? "")
   .map((entry) => entry.trim().replace(/\/+$/, ""))
   .filter((entry) => entry.length > 0);
 const MODEL_TTL_MS = Number(process.env.MODEL_TTL_MS ?? 30_000);
+/** A model-listing probe must answer fast; a slow backend is not routable. */
+const PROBE_TIMEOUT_MS = 5_000;
 /** Docker socket for label discovery of ad-hoc slots; absent -> static only. */
 const DOCKER_SOCK = process.env.DOCKER_SOCK ?? "/var/run/docker.sock";
 const BACKEND_LABEL = process.env.BACKEND_LABEL ?? "tei.backend";
@@ -65,35 +70,32 @@ async function dockerBackends() {
   return urls;
 }
 
+/** One backend GET as JSON, or null on any fault — a backend that is down,
+ * slow, or answers non-JSON is simply not routable. */
+async function fetchJson(url) {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
 async function scan() {
   const found = new Map();
   const discovered = await dockerBackends().catch(() => []);
   const bases = [...new Set([...BACKENDS, ...discovered])];
   await Promise.all(
     bases.map(async (base) => {
-      // TEI answers /info with the single model it serves.
-      try {
-        const response = await fetch(`${base}/info`, { signal: AbortSignal.timeout(5_000) });
-        if (response.ok) {
-          const body = await response.json();
-          if (typeof body?.model_id === "string") {
-            found.set(body.model_id, base);
-            return;
-          }
-        }
-      } catch {
-        // Fall through to the OpenAI list probe.
+      // TEI names its one model in /info; anything else is asked for a list.
+      const teiId = teiModelId(await fetchJson(`${base}/info`));
+      if (teiId !== null) {
+        found.set(teiId, base);
+        return;
       }
-      // vLLM (and other OpenAI-shaped servers) answer /v1/models instead.
-      try {
-        const response = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(5_000) });
-        if (!response.ok) return;
-        const body = await response.json();
-        for (const entry of Array.isArray(body?.data) ? body.data : []) {
-          if (typeof entry?.id === "string" && entry.id.length > 0) found.set(entry.id, base);
-        }
-      } catch {
-        // A backend being down is not fatal: it just is not routable.
+      for (const id of openAiModelIds(await fetchJson(`${base}/v1/models`))) {
+        found.set(id, base);
       }
     }),
   );
@@ -161,7 +163,7 @@ const server = createServer(async (request, response) => {
     await ensureFresh();
     return sendJson(response, 200, {
       object: "list",
-      data: [...modelBackend.keys()].map((id) => ({ id, object: "model", owned_by: "tei" })),
+      data: [...modelBackend.keys()].map((id) => ({ id, object: "model", owned_by: "local" })),
     });
   }
 
@@ -193,5 +195,5 @@ setInterval(() => {
 }, MODEL_TTL_MS).unref();
 
 server.listen(PORT, () => {
-  console.log(`tei-router on :${PORT} fronting ${BACKENDS.length} static + labelled backends`);
+  console.log(`router on :${PORT} fronting ${BACKENDS.length} static + labelled backends`);
 });
