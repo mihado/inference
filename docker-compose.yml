@@ -179,9 +179,9 @@ services:
       - --model-id
       - ${MODEL_7:-voyageai/voyage-4-nano}
       - --dtype
-      - float16
+      - float32
       - --max-client-batch-size
-      - "128"
+      - "32"
       - --max-batch-tokens
       - "32768"
     ports:
