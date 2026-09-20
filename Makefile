@@ -2,7 +2,7 @@
 ROUTER_PORT ?= 8100
 SLOTS := 1 2 3 4 5 6 7
 
-.PHONY: up down status models health logs load unload
+.PHONY: up down status models health logs load unload run stop
 
 up: ## build (router) and start every slot
 	docker compose up -d --build
@@ -27,3 +27,9 @@ load: ## swap a slot's model: make load SLOT=3 MODEL=BAAI/bge-reranker-v2-m3
 
 unload: ## stop a slot: make unload SLOT=3
 	scripts/model.sh unload $(SLOT)
+
+run: ## start an ad-hoc slot: make run MODEL=... [NAME=] [GPU=] [PORT=]
+	scripts/run.sh "$(MODEL)" $(if $(NAME),--name $(NAME)) $(if $(GPU),--gpu $(GPU)) $(if $(PORT),--port $(PORT))
+
+stop: ## remove an ad-hoc slot: make stop NAME=tei-...
+	scripts/stop.sh "$(NAME)"

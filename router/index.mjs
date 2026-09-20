@@ -10,7 +10,8 @@
 // re-scanned on a TTL. Traefik cannot dispatch on a JSON body, which is why
 // this exists; put TLS/ingress in front of it if you need it.
 
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
+import { existsSync } from "node:fs";
 
 const PORT = Number(process.env.PORT ?? 80);
 const BACKENDS = (process.env.BACKENDS ?? "")
@@ -18,16 +19,57 @@ const BACKENDS = (process.env.BACKENDS ?? "")
   .map((entry) => entry.trim().replace(/\/+$/, ""))
   .filter((entry) => entry.length > 0);
 const MODEL_TTL_MS = Number(process.env.MODEL_TTL_MS ?? 30_000);
+/** Docker socket for label discovery of ad-hoc slots; absent -> static only. */
+const DOCKER_SOCK = process.env.DOCKER_SOCK ?? "/var/run/docker.sock";
+const BACKEND_LABEL = process.env.BACKEND_LABEL ?? "tei.backend";
 
 /** model id -> backend base url. */
 let modelBackend = new Map();
 let lastScan = 0;
 let scanning = null;
 
+/** One Docker API GET over the socket; rejects on any failure. */
+function dockerJson(path) {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest({ socketPath: DOCKER_SOCK, path, method: "GET" }, (res) => {
+      let data = "";
+      res.on("data", (chunk) => {
+        data += chunk;
+      });
+      res.on("end", () => {
+        if (res.statusCode !== 200) return reject(new Error(`docker ${res.statusCode}`));
+        try {
+          resolve(JSON.parse(data));
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+/** Base URLs of running containers labelled BACKEND_LABEL, reachable by name on
+ * the shared compose network. Empty when the socket is absent or unreachable. */
+async function dockerBackends() {
+  if (!existsSync(DOCKER_SOCK)) return [];
+  const filters = encodeURIComponent(JSON.stringify({ label: [`${BACKEND_LABEL}=1`] }));
+  const containers = await dockerJson(`/containers/json?filters=${filters}`);
+  const urls = [];
+  for (const container of Array.isArray(containers) ? containers : []) {
+    const name = String(container?.Names?.[0] ?? "").replace(/^\//, "");
+    if (name.length > 0) urls.push(`http://${name}:80`);
+  }
+  return urls;
+}
+
 async function scan() {
   const found = new Map();
+  const discovered = await dockerBackends().catch(() => []);
+  const bases = [...new Set([...BACKENDS, ...discovered])];
   await Promise.all(
-    BACKENDS.map(async (base) => {
+    bases.map(async (base) => {
       try {
         const response = await fetch(`${base}/info`, { signal: AbortSignal.timeout(5_000) });
         if (!response.ok) return;
@@ -134,5 +176,5 @@ setInterval(() => {
 }, MODEL_TTL_MS).unref();
 
 server.listen(PORT, () => {
-  console.log(`tei-router on :${PORT} fronting ${BACKENDS.length} backend(s)`);
+  console.log(`tei-router on :${PORT} fronting ${BACKENDS.length} static + labelled backends`);
 });

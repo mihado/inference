@@ -36,6 +36,18 @@ curl -s localhost:8100/v1/embeddings -H 'content-type: application/json' \
 
 Traefik (or any HTTP proxy) can't dispatch on a JSON body, which is why this exists; it also only adds TLS/ingress, so a plain reverse proxy in front is enough if you need that. Clients then configure **one** provider pointing at the router instead of one per slot.
 
+## Ad-hoc slots (experiments)
+
+Skip the compose file for one-off models: `make run MODEL=…` starts a container on the compose network, pinned to the GPU with the most free VRAM, labelled `tei.backend=1` so the router discovers it **without a restart**, and given a free host port in 8087-8100 for reaching it from outside for debugging.
+
+```sh
+make run MODEL=BAAI/bge-reranker-base        # or: scripts/run.sh <model> [--gpu N] [--port N] [--name N]
+make status
+make stop NAME=tei-baai-bge-reranker-base    # docker rm -f
+```
+
+The router discovers labelled containers over the Docker socket; the static `BACKENDS` list stays as a fallback. Only the router's port needs to be reachable from outside the box (**8100**) — clients point at it, never at a slot.
+
 ## Prerequisites
 
 - NVIDIA driver with **CUDA ≥ 12.2**.

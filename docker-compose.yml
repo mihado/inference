@@ -8,6 +8,9 @@ name: inference
 x-tei: &tei
   image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
   restart: unless-stopped
+  # Discovered by the router: every labelled container is a backend.
+  labels:
+    - tei.backend=1
   environment:
     HUGGINGFACE_HUB_CACHE: /data
   volumes:
@@ -31,6 +34,10 @@ services:
       BACKENDS: "http://hf-1:80,http://hf-2:80,http://hf-3:80,http://hf-4:80,http://hf-5:80,http://hf-6:80,http://hf-7:80"
     ports:
       - "${ROUTER_PORT:-8100}:80"
+    volumes:
+      # Read-only: the router lists labelled containers to discover ad-hoc
+      # slots (scripts/run.sh). Drop it to use the static BACKENDS list only.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       - hf-1
       - hf-2
