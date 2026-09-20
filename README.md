@@ -1,6 +1,8 @@
 # inference
 
-Text Embeddings Inference (TEI) slots for a 2× RTX A4000 box. Four containers, each serving one Hugging Face model (embeddings or a reranker), sharing a single host weight cache.
+Text Embeddings Inference (TEI) slots for a 2× RTX A4000 box. Each container serves one Hugging Face model (an embedder or a reranker); a small router fronts them all as one endpoint. One host weight cache is shared.
+
+## Slots
 
 | slot | port | GPU | default model |
 | --- | --- | --- | --- |
@@ -12,21 +14,23 @@ Text Embeddings Inference (TEI) slots for a 2× RTX A4000 box. Four containers, 
 | `hf-6` | 8085 | 1 | `voyageai/voyage-4-nano` |
 | `hf-7` | 8086 | 0 | `jinaai/jina-reranker-v2-base-multilingual` |
 
-Slots 1–4 pin GPU 0 (the rerankers), slots 5–6 GPU 1 (the embedders). Placement is per-slot (`GPU_<n>`), so any assignment works as long as the models fit the card. `make status` shows the live model per slot.
+Slots 1–4 and 7 pin GPU 0 (the rerankers), 5–6 GPU 1 (the embedders). Placement is per-slot (`GPU_<n>`): any assignment works as long as the models fit the card. More slots can be added freely — see Ad-hoc slots.
 
-## Swapping models
-
-TEI loads one model at startup, so a swap is a recreate — `scripts/model.sh` writes the model into `.env` and recreates just that slot:
+## Quick start
 
 ```sh
-scripts/model.sh status
-scripts/model.sh load 2 BAAI/bge-reranker-v2-m3   # set + (re)start hf-2
-scripts/model.sh unload 2                         # stop hf-2, freeing VRAM
+mkdir -p "$HOME/.hf-cache"
+cp .env.example .env
+make up            # builds the router image, starts every slot
+make models        # the router's union of served models
+make status        # live model per slot
 ```
 
-## Router (one endpoint for all slots)
+Only **one** port needs to be reachable from outside the box: the router on **8100**. Clients point at it; they never address a slot.
 
-`router/` is a small dependency-free proxy that fronts the four slots as **one** base URL (`:8100`): `GET /v1/models` returns the union of every running slot's model, and `POST /v1/embeddings` / `/rerank` are dispatched by the requested model to the slot serving it. Model→slot comes from each container's `/info`, re-scanned on a TTL, so a swapped slot is picked up automatically.
+## Router
+
+`router/` is a dependency-free proxy that fronts every slot as one base URL (`:8100`): `GET /v1/models` returns the union of the slots' models, and `POST /v1/embeddings` / `/rerank` are dispatched by the requested model to the slot serving it. Model→slot is read from each container's `/info` on a TTL, so a swapped or newly-started slot is picked up automatically.
 
 ```sh
 curl -s localhost:8100/v1/models
@@ -34,24 +38,45 @@ curl -s localhost:8100/v1/embeddings -H 'content-type: application/json' \
   -d '{"model":"Qwen/Qwen3-Embedding-0.6B","input":["A brewer may sell beer."]}'
 ```
 
-Traefik (or any HTTP proxy) can't dispatch on a JSON body, which is why this exists; it also only adds TLS/ingress, so a plain reverse proxy in front is enough if you need that. Clients then configure **one** provider pointing at the router instead of one per slot.
+Traefik and other HTTP proxies cannot dispatch on a JSON body, which is why this exists; a plain reverse proxy in front is enough if you need TLS/ingress.
 
-## Ad-hoc slots (experiments)
+## Changing models
 
-Skip the compose file for one-off models: `make run MODEL=…` starts a container on the compose network, pinned to the GPU with the most free VRAM, labelled `tei.backend=1` so the router discovers it **without a restart**, and given a free host port in 8087-8100 for reaching it from outside for debugging.
+TEI loads one model at startup, so a swap is a recreate.
 
 ```sh
-make run MODEL=BAAI/bge-reranker-base        # or: scripts/run.sh <model> [--gpu N] [--port N] [--name N]
-make status
-make stop NAME=tei-baai-bge-reranker-base    # docker rm -f
+make load SLOT=2 MODEL=BAAI/bge-reranker-v2-m3   # set + recreate hf-2
+make unload SLOT=2                               # stop hf-2, freeing VRAM
 ```
 
-The router discovers labelled containers over the Docker socket; the static `BACKENDS` list stays as a fallback. Only the router's port needs to be reachable from outside the box (**8100**) — clients point at it, never at a slot.
+For one-off experiments, skip the compose file — start an ad-hoc slot on the compose network, pinned to the GPU with the most free VRAM and labelled so the router discovers it without a restart:
+
+```sh
+make run MODEL=BAAI/bge-reranker-base            # free GPU + a free debug port
+make status
+make stop NAME=tei-baai-bge-reranker-base
+```
+
+The router discovers labelled containers (`tei.backend=1`) over the Docker socket; the static `BACKENDS` list is a fallback.
+
+## Make targets
+
+| target | does |
+| --- | --- |
+| `make up` / `make down` | build + start / stop the stack |
+| `make status` | live model per slot |
+| `make models` | the router's union of models |
+| `make health` | per-slot `/health` |
+| `make logs SVC=hf-3` | follow one service |
+| `make load SLOT=2 MODEL=…` | set a slot's model and recreate it |
+| `make unload SLOT=2` | stop a slot |
+| `make run MODEL=…` | start an ad-hoc slot |
+| `make stop NAME=tei-…` | remove an ad-hoc slot |
 
 ## Prerequisites
 
 - NVIDIA driver with **CUDA ≥ 12.2**.
-- **NVIDIA Container Toolkit.** Without it Docker fails `--gpus` at container creation with `could not select device driver "" with capabilities: [[gpu]]`, and `docker info | grep -i runtime` shows only `runc`. Ubuntu 24.04 does **not** carry the package in its default repos — add NVIDIA's apt source first:
+- **NVIDIA Container Toolkit.** Without it, Docker fails `--gpus` at container creation with `could not select device driver "" with capabilities: [[gpu]]`, and `docker info | grep -i runtime` shows only `runc`. Ubuntu 24.04 does **not** carry the package in its default repos — add NVIDIA's apt source first, then configure the runtime:
 
   ```sh
   curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
@@ -66,49 +91,31 @@ The router discovers labelled containers over the Docker socket; the static `BAC
   docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi   # verify
   ```
 
-- **Image tag = GPU compute capability.** RTX A4000 is Ampere 8.6 → `86-1.9.1`. The generic `1.9` is sm_80 (A100/A30): it runs on sm_86 but is not tuned. Map: `1.9`=sm80, `86-1.9.1`=sm86, `89-1.9.1`=sm89, `hopper-1.9.1`, `turing-1.9.1` (needs `USE_FLASH_ATTENTION=True`). The 1.9.x images are CUDA 12.9-based (driver ≥ 575). If TEI logs `CUDA_ERROR_SYSTEM_DRIVER_MISMATCH` and falls back to CPU, the tag's CUDA/driver combo is off — `cuda-1.9.1` is a known-good fallback.
-
-## Run
-
-```sh
-mkdir -p "$HOME/.hf-cache"
-cp .env.example .env        # adjust tag/GPU/ports if needed
-docker compose up -d
-docker compose logs -f
-```
-
-Verify once ready:
-
-```sh
-curl -s http://127.0.0.1:8080/info | head -c 400
-curl -s http://127.0.0.1:8081/info | head -c 400
-curl -s http://127.0.0.1:8080/v1/embeddings -H 'content-type: application/json' \
-  -d '{"model":"Qwen/Qwen3-Embedding-4B","input":["A brewer may sell beer."]}' | head -c 200
-```
+- **Image tag = GPU compute capability.** RTX A4000 is Ampere 8.6 → `86-1.9.1` (the default). Map: `1.9`=sm80 (A100/A30), `86-1.9.1`=sm86, `89-1.9.1`=sm89, `hopper-1.9.1`, `turing-1.9.1` (needs `USE_FLASH_ATTENTION=True`). The 1.9.x images are CUDA 12.9-based (driver ≥ 575). If TEI logs `CUDA_ERROR_SYSTEM_DRIVER_MISMATCH` and falls back to CPU, the tag's CUDA/driver combo is wrong — `cuda-1.9.1` is a known-good fallback.
 
 ## First start (what looks broken but isn't)
 
 ```sh
 # 1. Small artifacts download in seconds, each logged by name.
-docker compose logs -f tei-4b
+docker compose logs -f hf-5
 
 # 2. "Could not download model.safetensors: 404" is benign — the model is
 #    sharded, so TEI falls back to model.safetensors.index.json + model-0000N shards.
 
 # 3. The shard download logs nothing while it runs — it is NOT stuck. Watch it grow:
-docker stats --no-stream tei-4b       # NET I/O climbing
-du -sh "$HOME/.hf-cache"              # size growing; a restart resumes from the cache
+docker stats --no-stream hf-5      # NET I/O climbing
+du -sh "$HOME/.hf-cache"           # size growing; a restart resumes from the cache
 
 # 4. TEI does not listen until the model is loaded, so curl returns
 #    connection-refused / HTTP 000 meanwhile. Wait for "Ready" in the logs.
 
 # 5. Confirm it runs on the GPU. A driver/CUDA mismatch is SILENT — it logs a
-#    warning and falls back to CPU, then chokes warming up a 4B model there:
+#    warning and falls back to CPU, then chokes warming up a large model there:
 #      CUDA_ERROR_SYSTEM_DRIVER_MISMATCH -> "Using CPU instead" -> "on Cpu"
 docker compose logs | grep -E "on Cuda|on Cpu"
 ```
 
-A 4B cold init can take ~6 minutes; the shard download dominates the first run.
+A large model's cold init can take minutes; the shard download dominates the first run.
 
 ## Shared cache
 
@@ -121,18 +128,18 @@ Every instance bind-mounts the same host directory to `/data` (`HF_CACHE`, defau
 | `could not select device driver ""` | `docker info \| grep -i runtime` | NVIDIA Container Toolkit missing/not wired into Docker |
 | `CUDA_ERROR_SYSTEM_DRIVER_MISMATCH`, `Using CPU instead` | `nvidia-smi` (Driver vs CUDA Version) | Image CUDA newer than the driver — use a matching tag |
 | HTTP `000` / connection refused | `docker compose ps`, `logs` | Not listening yet (loading/warming) or the container exited |
-| Looks stuck after `Starting FlashQwen3 model on Cuda` | `docker stats`, `nvidia-smi --query-gpu=index,utilization.gpu,memory.used --format=csv` | GPU util ~0% + CPU ~100% = slow cold init, not a hang |
+| Looks stuck after `Starting ... model on Cuda` | `docker stats`, `nvidia-smi --query-gpu=index,utilization.gpu,memory.used --format=csv` | GPU util ~0% + CPU ~100% = slow cold init, not a hang |
 | Is the download progressing? | `du -sh "$HF_CACHE"`, `docker stats` NET I/O | Growing = downloading; frozen = stalled (restart resumes) |
-| Why did it exit? | `docker inspect --format 'exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' tei-4b` | Exit code / OOM flag |
+| Why did it exit? | `docker inspect --format 'exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' hf-5` | Exit code / OOM flag |
 
 ## Gotchas
 
 - **`429 Model is overloaded`** is TEI backpressure, not a rate limiter: a 128-input request is ~25k tokens against `--max-batch-tokens 32768`, so only one fits per step and extras overflow the queue. Lower `--max-client-batch-size` or raise `--max-batch-tokens`.
-- `--max-batch-tokens` should be the largest value the model tolerates before it becomes compute-bound; TEI cannot infer it. Defaults: `--max-batch-tokens 16384`, `--max-client-batch-size 32`.
+- `--max-batch-tokens` should be the largest value the model tolerates before going compute-bound; TEI cannot infer it. Defaults: `--max-batch-tokens 16384`, `--max-client-batch-size 32`.
 - `--served-model-name` sets the OpenAI-compatible model alias; unset means the Hugging Face id is the served name.
+- **Dims can differ from the API.** `voyageai/voyage-4-nano` serves `num_labels: 2048` locally while Voyage's API defaults to 1024 (Matryoshka); truncate + renormalise client-side to match.
 
 ## Models
 
 - **Embeddings:** any TEI text-embeddings model (Nomic, BERT, XLM-RoBERTa, GTE, Qwen2/3, Gemma3, …).
-- **Rerankers:** TEI serves BERT/XLM-RoBERTa sequence-classification cross-encoders, e.g. `BAAI/bge-reranker-v2-m3` (568M, multilingual) — the sane default. BAAI's larger v2 rerankers (`v2-gemma`, `v2-minicpm-layerwise`) are LLM decoders; TEI's rerank surface does not serve them, so run those on a generation server.
-- `voyageai/voyage-4-nano` is TEI-supported under the Qwen3 type, but its config carries `num_labels: 2048`; check the served dims via `/info` before assuming 1024.
+- **Rerankers:** TEI serves sequence-classification cross-encoders (BERT, XLM-RoBERTa, GTE, ModernBERT), e.g. `BAAI/bge-reranker-v2-m3`. Generative/decoder rerankers — BAAI `v2-gemma`, `v2-minicpm-layerwise`, `Qwen/Qwen3-Reranker` — and custom architectures (`nvidia/llama-nemotron-rerank-1b-v2`, `JinaForRanking`) are **not** served by TEI; run those on a generation server. `tomaarsen/Qwen3-Reranker-0.6B-seq-cls` is a sequence-classification conversion that may load.
