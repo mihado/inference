@@ -4,12 +4,12 @@ Text Embeddings Inference (TEI) slots for a 2× RTX A4000 box. Four containers, 
 
 | slot | port | GPU | default model |
 | --- | --- | --- | --- |
-| `hf-1` | 8080 | 0 | `Qwen/Qwen3-Embedding-0.6B` |
+| `hf-1` | 8080 | 0 | `Alibaba-NLP/gte-reranker-modernbert-base` |
 | `hf-2` | 8081 | 0 | `BAAI/bge-reranker-v2-m3` |
-| `hf-3` | 8082 | 1 | `Qwen/Qwen3-Embedding-4B` |
+| `hf-3` | 8082 | 1 | `Qwen/Qwen3-Embedding-0.6B` |
 | `hf-4` | 8083 | 1 | `voyageai/voyage-4-nano` |
 
-Slots 1–2 pin GPU 0, slots 3–4 GPU 1. **GPU 0 also runs Ollama (~8.5 GB)**, so keep slots 1–2 small (0.6B, reranker); GPU 1 (16 GB) fits the 4B (~8 GB) plus another small model.
+Slots 1–2 pin GPU 0 (the rerankers, ~600M each), slots 3–4 GPU 1 (the embedders). Placement is per-slot (`GPU_<n>`), so any assignment works as long as the models fit the card.
 
 ## Swapping models
 

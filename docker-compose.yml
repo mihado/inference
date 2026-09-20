@@ -24,7 +24,7 @@ services:
     <<: *tei
     command:
       - --model-id
-      - ${MODEL_1:-Qwen/Qwen3-Embedding-0.6B}
+      - ${MODEL_1:-Alibaba-NLP/gte-reranker-modernbert-base}
       - --dtype
       - float16
       - --max-client-batch-size
@@ -66,7 +66,7 @@ services:
     <<: *tei
     command:
       - --model-id
-      - ${MODEL_3:-Qwen/Qwen3-Embedding-4B}
+      - ${MODEL_3:-Qwen/Qwen3-Embedding-0.6B}
       - --dtype
       - float16
       - --max-client-batch-size
