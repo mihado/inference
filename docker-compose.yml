@@ -1,15 +1,14 @@
 name: inference
 
-# Six Hugging Face Inference (TEI) slots and one vLLM embedder on a 2x RTX A4000
-# box, fronted by a model-aware router. Slots 1-5 pin GPU 0 (rerankers); hf-6 and
-# the nano vLLM service pin GPU 1 (embedders). Each mounts one shared host weight
-# cache; the model per slot is an .env variable so scripts/model.sh (or `make
-# load`) can swap it. See README.md.
+# Two model servers on a 2x RTX A4000 box, fronted by a model-aware router:
+# one TEI reranker and one vLLM embedder (voyage-4-nano). Both use GPU 1, so
+# GPU 0 stays free. One host weight cache is shared. The model of each service
+# is an .env variable. See README.md.
 
 x-tei: &tei
   image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
   restart: unless-stopped
-  # Discovered by the router: every labelled container is a backend.
+  # The router discovers every labelled container as a backend.
   labels:
     - tei.backend=1
   environment:
@@ -24,167 +23,60 @@ x-tei: &tei
     start_period: 600s
 
 services:
-  # One model-aware front for the slots: reports their union of models and
-  # routes each call by the requested model. Point a single client provider at
-  # this instead of one per slot. See router/index.mjs.
+  # One front for both servers. It reports the union of their models and sends
+  # each call to the server that has the requested model. Point one client
+  # provider here. See router/index.mjs.
   router:
     build: ./router
     restart: unless-stopped
     environment:
       PORT: "80"
-      BACKENDS: "http://hf-1:80,http://hf-2:80,http://hf-3:80,http://hf-4:80,http://hf-5:80,http://hf-6:80,http://nano:80"
+      BACKENDS: "http://reranker:80,http://nano:80"
     ports:
       - "${ROUTER_PORT:-8100}:80"
     volumes:
-      # Read-only: the router lists labelled containers to discover ad-hoc
-      # slots (scripts/run.sh). Drop it to use the static BACKENDS list only.
+      # Read-only. The router lists labelled containers, so a free ad-hoc slot
+      # from scripts/run.sh is found with no restart. Remove this line to use
+      # the static BACKENDS list only.
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
-      - hf-1
-      - hf-2
-      - hf-3
-      - hf-4
-      - hf-5
-      - hf-6
+      - reranker
       - nano
 
-  hf-1:
+  # The best free local reranker (see README, "Measured results"). A reranker
+  # reads a query and 30 short passages, so --max-batch-tokens is the model
+  # input limit, 8192, and much less than the old shared value of 32768.
+  reranker:
     <<: *tei
     command:
       - --model-id
-      - ${MODEL_1:-Alibaba-NLP/gte-reranker-modernbert-base}
+      - ${MODEL_RERANKER:-Alibaba-NLP/gte-reranker-modernbert-base}
       - --dtype
       - float16
       - --max-client-batch-size
-      - "128"
+      - "64"
       - --max-batch-tokens
-      - "32768"
+      - "8192"
     ports:
-      - "${PORT_1:-8080}:80"
+      - "${PORT_RERANKER:-8080}:80"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["${GPU_1:-0}"]
+              device_ids: ["${GPU_RERANKER:-1}"]
               capabilities: [gpu]
 
-  hf-2:
-    <<: *tei
-    command:
-      - --model-id
-      - ${MODEL_2:-BAAI/bge-reranker-v2-m3}
-      - --dtype
-      - float16
-      - --max-client-batch-size
-      - "128"
-      - --max-batch-tokens
-      - "32768"
-    ports:
-      - "${PORT_2:-8081}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_2:-0}"]
-              capabilities: [gpu]
-
-  hf-3:
-    <<: *tei
-    command:
-      - --model-id
-      - ${MODEL_3:-cross-encoder/ms-marco-MiniLM-L6-v2}
-      - --dtype
-      - float16
-      - --max-client-batch-size
-      - "128"
-      - --max-batch-tokens
-      - "32768"
-    ports:
-      - "${PORT_3:-8082}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_3:-0}"]
-              capabilities: [gpu]
-
-  hf-4:
-    <<: *tei
-    command:
-      - --model-id
-      - ${MODEL_4:-Alibaba-NLP/gte-multilingual-reranker-base}
-      - --dtype
-      - float16
-      - --max-client-batch-size
-      - "128"
-      - --max-batch-tokens
-      - "32768"
-    ports:
-      - "${PORT_4:-8083}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_4:-0}"]
-              capabilities: [gpu]
-
-  hf-5:
-    <<: *tei
-    command:
-      - --model-id
-      - ${MODEL_5:-ibm-granite/granite-embedding-reranker-english-r2}
-      - --dtype
-      - float16
-      - --max-client-batch-size
-      - "128"
-      - --max-batch-tokens
-      - "32768"
-    ports:
-      - "${PORT_5:-8084}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_5:-0}"]
-              capabilities: [gpu]
-
-  hf-6:
-    <<: *tei
-    command:
-      - --model-id
-      - ${MODEL_6:-Qwen/Qwen3-Embedding-0.6B}
-      - --dtype
-      - float16
-      - --max-client-batch-size
-      - "128"
-      - --max-batch-tokens
-      - "32768"
-    ports:
-      - "${PORT_6:-8085}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_6:-1}"]
-              capabilities: [gpu]
-
-  # voyage-4-nano is a bf16 model with custom bidirectional pooling: under TEI
-  # it overflows to all-NaN vectors at fp16 and OOMs at fp32. vLLM runs it at its
-  # native bfloat16 with a controlled memory budget, so it gets its own runtime.
-  # `--runner pooling` serves it over the same OpenAI /v1/embeddings surface.
+  # voyage-4-nano is a bf16 model with custom bidirectional pooling. Under TEI
+  # it returns NaN vectors at fp16 and runs out of memory at fp32. vLLM runs it
+  # at its native bfloat16, so it needs its own runtime.
   nano:
     image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-v0.16.0}
     restart: unless-stopped
     # Same backend label: the router discovers it and dispatches by model id.
     labels:
       - tei.backend=1
-    # vLLM uses /dev/shm for its worker; the default 64m is too small.
+    # vLLM uses /dev/shm for its worker. The default of 64m is too small.
     ipc: host
     environment:
       HUGGINGFACE_HUB_CACHE: /data
@@ -212,7 +104,7 @@ services:
     ports:
       - "${PORT_NANO:-8086}:80"
     healthcheck:
-      # vLLM's image has python3 but not necessarily curl.
+      # The vLLM image has python3 but not always curl.
       test:
         [
           "CMD-SHELL",

@@ -5,7 +5,7 @@
 // /v1/embeddings and /rerank call to the server serving the requested model.
 // Dependency-free (node:http + fetch).
 //
-//   BACKENDS="http://hf-1:80,http://hf-2:80,..." node index.mjs
+//   BACKENDS="http://reranker:80,http://nano:80" node index.mjs
 //
 // Model -> backend comes from each server's TEI /info (`{ model_id }`) or, for
 // OpenAI-shaped servers like vLLM, its /v1/models list; re-scanned on a TTL.
