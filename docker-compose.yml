@@ -30,7 +30,7 @@ services:
       PORT: "80"
       BACKENDS: "http://hf-1:80,http://hf-2:80,http://hf-3:80,http://hf-4:80,http://hf-5:80,http://hf-6:80,http://hf-7:80"
     ports:
-      - "${ROUTER_PORT:-8090}:80"
+      - "${ROUTER_PORT:-8100}:80"
     depends_on:
       - hf-1
       - hf-2

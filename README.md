@@ -26,11 +26,11 @@ scripts/model.sh unload 2                         # stop hf-2, freeing VRAM
 
 ## Router (one endpoint for all slots)
 
-`router/` is a small dependency-free proxy that fronts the four slots as **one** base URL (`:8090`): `GET /v1/models` returns the union of every running slot's model, and `POST /v1/embeddings` / `/rerank` are dispatched by the requested model to the slot serving it. Model→slot comes from each container's `/info`, re-scanned on a TTL, so a swapped slot is picked up automatically.
+`router/` is a small dependency-free proxy that fronts the four slots as **one** base URL (`:8100`): `GET /v1/models` returns the union of every running slot's model, and `POST /v1/embeddings` / `/rerank` are dispatched by the requested model to the slot serving it. Model→slot comes from each container's `/info`, re-scanned on a TTL, so a swapped slot is picked up automatically.
 
 ```sh
-curl -s localhost:8090/v1/models
-curl -s localhost:8090/v1/embeddings -H 'content-type: application/json' \
+curl -s localhost:8100/v1/models
+curl -s localhost:8100/v1/embeddings -H 'content-type: application/json' \
   -d '{"model":"Qwen/Qwen3-Embedding-0.6B","input":["A brewer may sell beer."]}'
 ```
 
