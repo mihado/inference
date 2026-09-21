@@ -4,6 +4,8 @@ This repository runs six model servers on a 2x RTX A4000 box. A router puts
 them behind one address. Every model has a replica on each GPU, so the router can
 rotate a model's requests across both cards.
 
+The rules for measurement and tuning are in [TUNING.md](TUNING.md).
+
 The two servers are:
 
 - `reranker` — the local reranker.
