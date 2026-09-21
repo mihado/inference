@@ -5,6 +5,11 @@
 // /v1/embeddings and /rerank call to the server serving the requested model.
 // Dependency-free (node:http + fetch).
 //
+// Backends are the labelled containers on its network (`tei.backend=1`), found
+// through the Docker socket and re-scanned on a TTL. With no socket, name them
+// instead — and name each one by its service, which is the identity the
+// discovery uses too:
+//
 //   BACKENDS="http://reranker:80,http://nano:80" node index.mjs
 //
 // Model -> backend comes from each server's TEI /info (`{ model_id }`) or, for
@@ -15,7 +20,7 @@
 import { createServer, request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
 
-import { addBackend, openAiModelIds, pickBackend, teiModelId } from "./backends.mjs";
+import { addBackend, backendName, openAiModelIds, pickBackend, teiModelId } from "./backends.mjs";
 
 const PORT = Number(process.env.PORT ?? 80);
 const BACKENDS = (process.env.BACKENDS ?? "")
@@ -61,14 +66,16 @@ function dockerJson(path) {
 }
 
 /** Base URLs of running containers labelled BACKEND_LABEL, reachable by name on
- * the shared compose network. Empty when the socket is absent or unreachable. */
+ * the shared compose network. Empty when the socket is absent or unreachable.
+ * Each is named by `backendName`, so a container is one entry here and the same
+ * entry a static BACKENDS list would name. */
 async function dockerBackends() {
   if (!existsSync(DOCKER_SOCK)) return [];
   const filters = encodeURIComponent(JSON.stringify({ label: [`${BACKEND_LABEL}=1`] }));
   const containers = await dockerJson(`/containers/json?filters=${filters}`);
   const urls = [];
   for (const container of Array.isArray(containers) ? containers : []) {
-    const name = String(container?.Names?.[0] ?? "").replace(/^\//, "");
+    const name = backendName(container);
     if (name.length > 0) urls.push(`http://${name}:80`);
   }
   return urls;
@@ -202,5 +209,8 @@ setInterval(() => {
 }, MODEL_TTL_MS).unref();
 
 server.listen(PORT, () => {
-  console.log(`router on :${PORT} fronting ${BACKENDS.length} static + labelled backends`);
+  console.log(
+    `router on :${PORT} fronting labelled backends` +
+      (BACKENDS.length > 0 ? ` plus ${BACKENDS.length} static` : ""),
+  );
 });

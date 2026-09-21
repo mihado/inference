@@ -100,13 +100,12 @@ services:
     restart: unless-stopped
     environment:
       PORT: "80"
-      BACKENDS: "http://reranker:80,http://nano:80"
     ports:
       - "${ROUTER_PORT:-8100}:80"
     volumes:
-      # Read-only. The router lists labelled containers, so a free ad-hoc slot
-      # from scripts/run.sh is found with no restart. Remove this line to use
-      # the static BACKENDS list only.
+      # Read-only. The router registers one entry for each labelled container,
+      # which is how every backend is found: add a service to this file and it is
+      # routable once its model answers. There is no second list to keep in step.
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       - reranker
