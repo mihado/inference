@@ -1,7 +1,8 @@
 # inference
 
-This repository runs two model servers on a 2x RTX A4000 box. A router puts
-them behind one address. Both servers use GPU 1. GPU 0 stays free.
+This repository runs six model servers on a 2x RTX A4000 box. A router puts
+them behind one address. Every model has a replica on each GPU, so the router can
+rotate a model's requests across both cards.
 
 The two servers are:
 
@@ -24,7 +25,9 @@ The two servers are:
 
 ## Profiles
 
-Two services start by default: `reranker` and `nano`. Five more are optional:
+Seven services start by default: `router`, plus a pair for each of the three
+models — `reranker`, `nano`, and `qwen-embed` — with the second replica on the
+other GPU. Four more are optional, and they live in `docker-compose.full.yml`:
 
 | Service | Port | GPU | Model |
 | --- | --- | --- | --- |
@@ -32,14 +35,14 @@ Two services start by default: `reranker` and `nano`. Five more are optional:
 | `ms-marco` | 8082 | 0 | `cross-encoder/ms-marco-MiniLM-L6-v2` |
 | `gte-multilingual` | 8083 | 0 | `Alibaba-NLP/gte-multilingual-reranker-base` |
 | `granite-reranker` | 8084 | 0 | `ibm-granite/granite-embedding-reranker-english-r2` |
-| `qwen-embed` | 8085 | 0 | `Qwen/Qwen3-Embedding-0.6B` |
+
 
 The optional services stay off until you enable the `full` profile:
 
 ```sh
 make up-all                                   # both defaults, plus all extras
-docker compose --profile full up -d --build    # the same
-docker compose --profile full stop             # stop the extras only
+docker compose -f docker-compose.yml -f docker-compose.full.yml --profile full up -d --build
+docker compose -f docker-compose.yml -f docker-compose.full.yml --profile full stop  # the extras only
 ```
 
 They use GPU 0. The router finds them with no config change, because it lists

@@ -1,13 +1,15 @@
 # Wrappers over docker compose and scripts/model.sh.
 ROUTER_PORT ?= 8100
 
-.PHONY: up up-all down down-all status models health logs load unload run stop
+# The bake-off extras live in their own file, so only the targets that mean
+# "everything" name both. `up`/`down` stay single-file on purpose.
+COMPOSE_ALL := docker compose -f docker-compose.yml -f docker-compose.full.yml
 
 up: ## build (router) and start both servers
 	docker compose up -d --build
 
 up-all: ## start both servers plus every extra slot (bake-off)
-	docker compose --profile "*" up -d --build
+	$(COMPOSE_ALL) --profile "*" up -d --build
 
 down: ## stop and remove the default-profile stack
 	docker compose down
@@ -19,7 +21,7 @@ down: ## stop and remove the default-profile stack
 # TEI slots from `make run` were never compose services at all. This is the
 # target that leaves nothing running.
 down-all: ## stop and remove EVERY profile, plus every ad-hoc slot
-	docker compose --profile "*" down --remove-orphans
+	$(COMPOSE_ALL) --profile "*" down --remove-orphans
 	@ids="$$(docker ps -aq --filter label=tei.backend=1)"; \
 	if [ -n "$$ids" ]; then docker rm -f $$ids; else echo "no ad-hoc slots"; fi
 

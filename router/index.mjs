@@ -15,7 +15,7 @@
 import { createServer, request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
 
-import { openAiModelIds, teiModelId } from "./backends.mjs";
+import { addBackend, openAiModelIds, pickBackend, teiModelId } from "./backends.mjs";
 
 const PORT = Number(process.env.PORT ?? 80);
 const BACKENDS = (process.env.BACKENDS ?? "")
@@ -29,8 +29,12 @@ const PROBE_TIMEOUT_MS = 5_000;
 const DOCKER_SOCK = process.env.DOCKER_SOCK ?? "/var/run/docker.sock";
 const BACKEND_LABEL = process.env.BACKEND_LABEL ?? "tei.backend";
 
-/** model id -> backend base url. */
+/** model id -> every backend base url that serves it, in discovery order. A
+ * model served by two GPUs has two entries, and the router takes turns. */
 let modelBackend = new Map();
+/** model id -> how many requests it has been asked for. Kept outside the scan, so
+ * a rescan does not reset the rotation. */
+const turns = new Map();
 let lastScan = 0;
 let scanning = null;
 
@@ -91,11 +95,11 @@ async function scan() {
       // TEI names its one model in /info; anything else is asked for a list.
       const teiId = teiModelId(await fetchJson(`${base}/info`));
       if (teiId !== null) {
-        found.set(teiId, base);
+        addBackend(found, teiId, base);
         return;
       }
       for (const id of openAiModelIds(await fetchJson(`${base}/v1/models`))) {
-        found.set(id, base);
+        addBackend(found, id, base);
       }
     }),
   );
@@ -176,7 +180,10 @@ const server = createServer(async (request, response) => {
       return sendError(response, 400, "A model is required.", "invalid_request_error");
     }
     await ensureFresh();
-    const backend = modelBackend.get(model);
+    const urls = modelBackend.get(model);
+    const turn = turns.get(model) ?? 0;
+    turns.set(model, turn + 1);
+    const backend = pickBackend(urls, turn);
     if (backend === undefined) {
       return sendError(response, 404, `No backend serves model '${model}'.`, "model_not_found");
     }

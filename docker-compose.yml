@@ -23,31 +23,7 @@ x-tei: &tei
     retries: 5
     start_period: 600s
 
-services:
-  # One front for both servers. It reports the union of their models and sends
-  # each call to the server that has the requested model. Point one client
-  # provider here. See router/index.mjs.
-  router:
-    build: ./router
-    restart: unless-stopped
-    environment:
-      PORT: "80"
-      BACKENDS: "http://reranker:80,http://nano:80"
-    ports:
-      - "${ROUTER_PORT:-8100}:80"
-    volumes:
-      # Read-only. The router lists labelled containers, so a free ad-hoc slot
-      # from scripts/run.sh is found with no restart. Remove this line to use
-      # the static BACKENDS list only.
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    depends_on:
-      - reranker
-      - nano
-
-  # The best free local reranker (see README, "Measured results"). A reranker
-  # reads a query and 30 short passages, so --max-batch-tokens is the model
-  # input limit, 8192, and much less than the old shared value of 32768.
-  reranker:
+x-reranker: &reranker
     <<: *tei
     command:
       - --model-id
@@ -58,23 +34,13 @@ services:
       - "64"
       - --max-batch-tokens
       - "8192"
-    ports:
-      - "${PORT_RERANKER:-8080}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_RERANKER:-1}"]
-              capabilities: [gpu]
 
-  # voyage-4-nano is a bf16 model with custom bidirectional pooling. Under TEI
-  # it returns NaN vectors at fp16 and runs out of memory at fp32. vLLM runs it
-  # at its native bfloat16, so it needs its own runtime.
-  nano:
+# voyage-4-nano is bf16 and needs vLLM — under TEI it returns
+  # NaN at fp16 and runs out of memory at fp32.
+x-nano: &nano
     image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-v0.16.0}
     restart: unless-stopped
-    # Same backend label: the router discovers it and dispatches by model id.
+    # The router discovers every labelled container as a backend.
     labels:
       - tei.backend=1
     # vLLM uses /dev/shm for its worker. The default of 64m is too small.
@@ -102,35 +68,9 @@ services:
       - --enforce-eager
       - --port
       - "80"
-    ports:
-      - "${PORT_NANO:-8086}:80"
-    healthcheck:
-      # The vLLM image has python3 but not always curl.
-      test:
-        [
-          "CMD-SHELL",
-          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/health')\" || exit 1",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 900s
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_NANO:-1}"]
-              capabilities: [gpu]
 
-  # --- Optional extras: docker compose --profile full up -d ---------------
-  # The four other rerankers from the bake-off, plus the Qwen3 embedder. They
-  # stay off unless you enable the `full` profile, and they all use GPU 0,
-  # which the default two services leave free. Use them to compare rerankers.
-  # The MVP needs only `reranker` and `nano`.
-  qwen-embed:
+x-qwen: &qwen
     <<: *tei
-    profiles: ["full"]
     command:
       - --model-id
       - ${MODEL_QWEN_EMBED:-Qwen/Qwen3-Embedding-0.6B}
@@ -140,6 +80,75 @@ services:
       - "128"
       - --max-batch-tokens
       - "8192"
+
+services:
+  router:
+    build: ./router
+    restart: unless-stopped
+    environment:
+      PORT: "80"
+      BACKENDS: "http://reranker:80,http://nano:80"
+    ports:
+      - "${ROUTER_PORT:-8100}:80"
+    volumes:
+      # Read-only. The router lists labelled containers, so a free ad-hoc slot
+      # from scripts/run.sh is found with no restart. Remove this line to use
+      # the static BACKENDS list only.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - reranker
+      - nano
+
+  reranker:
+    <<: *reranker
+    ports:
+      - "${PORT_RERANKER:-8080}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_RERANKER:-0}"]
+              capabilities: [gpu]
+
+  reranker-b:
+    <<: *reranker
+    ports:
+      - "${PORT_RERANKER_B:-8089}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_RERANKER_B:-1}"]
+              capabilities: [gpu]
+
+  nano:
+    <<: *nano
+    ports:
+      - "${PORT_NANO:-8086}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_NANO:-0}"]
+              capabilities: [gpu]
+
+  nano-b:
+    <<: *nano
+    ports:
+      - "${PORT_NANO_B:-8087}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_NANO_B:-1}"]
+              capabilities: [gpu]
+
+  qwen-embed:
+    <<: *qwen
     ports:
       - "${PORT_QWEN_EMBED:-8085}:80"
     deploy:
@@ -147,93 +156,17 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["${GPU_EXTRAS:-1}"]
+              device_ids: ["${GPU_QWEN_EMBED:-0}"]
               capabilities: [gpu]
 
-  bge-reranker:
-    <<: *tei
-    profiles: ["full"]
-    command:
-      - --model-id
-      - ${MODEL_BGE_RERANKER:-BAAI/bge-reranker-v2-m3}
-      - --dtype
-      - float16
-      - --max-client-batch-size
-      - "64"
-      - --max-batch-tokens
-      - "8192"
+  qwen-embed-b:
+    <<: *qwen
     ports:
-      - "${PORT_BGE_RERANKER:-8081}:80"
+      - "${PORT_QWEN_EMBED_B:-8088}:80"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["${GPU_EXTRAS:-0}"]
-              capabilities: [gpu]
-
-  ms-marco:
-    <<: *tei
-    profiles: ["full"]
-    command:
-      - --model-id
-      - ${MODEL_MS_MARCO:-cross-encoder/ms-marco-MiniLM-L6-v2}
-      - --dtype
-      - float16
-      - --max-client-batch-size
-      - "64"
-      - --max-batch-tokens
-      - "8192"
-    ports:
-      - "${PORT_MS_MARCO:-8082}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_EXTRAS:-0}"]
-              capabilities: [gpu]
-
-  gte-multilingual:
-    <<: *tei
-    profiles: ["full"]
-    command:
-      - --model-id
-      - ${MODEL_GTE_MULTILINGUAL:-Alibaba-NLP/gte-multilingual-reranker-base}
-      - --dtype
-      - float16
-      - --max-client-batch-size
-      - "64"
-      - --max-batch-tokens
-      - "8192"
-    ports:
-      - "${PORT_GTE_MULTILINGUAL:-8083}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_EXTRAS:-0}"]
-              capabilities: [gpu]
-
-  granite-reranker:
-    <<: *tei
-    profiles: ["full"]
-    command:
-      - --model-id
-      - ${MODEL_GRANITE_RERANKER:-ibm-granite/granite-embedding-reranker-english-r2}
-      - --dtype
-      - float16
-      - --max-client-batch-size
-      - "64"
-      - --max-batch-tokens
-      - "8192"
-    ports:
-      - "${PORT_GRANITE_RERANKER:-8084}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_EXTRAS:-0}"]
+              device_ids: ["${GPU_QWEN_EMBED_B:-1}"]
               capabilities: [gpu]

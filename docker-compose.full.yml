@@ -1,0 +1,115 @@
+name: inference
+
+# The `full` profile: the four other rerankers from the bake-off, for comparing
+# them. Optional and separate, so the default stack is exactly what serves
+# traffic.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.full.yml --profile full up -d
+#
+# The anchor below is a copy of the one in docker-compose.yml — merge keys do not
+# cross files, so that duplication is the tool's, not a choice.
+x-tei: &tei
+  image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
+  restart: unless-stopped
+  # The router discovers every labelled container as a backend.
+  labels:
+    - tei.backend=1
+  environment:
+    HUGGINGFACE_HUB_CACHE: /data
+  volumes:
+    - ${HF_CACHE:-$HOME/.hf-cache}:/data
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:80/health || exit 1"]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 600s
+
+services:
+  bge-reranker:
+    <<: *tei
+    profiles: ["full"]
+    command:
+      - --model-id
+      - ${MODEL_BGE_RERANKER:-BAAI/bge-reranker-v2-m3}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "64"
+      - --max-batch-tokens
+      - "8192"
+    ports:
+      - "${PORT_BGE_RERANKER:-8081}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
+  ms-marco:
+    <<: *tei
+    profiles: ["full"]
+    command:
+      - --model-id
+      - ${MODEL_MS_MARCO:-cross-encoder/ms-marco-MiniLM-L6-v2}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "64"
+      - --max-batch-tokens
+      - "8192"
+    ports:
+      - "${PORT_MS_MARCO:-8082}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
+  gte-multilingual:
+    <<: *tei
+    profiles: ["full"]
+    command:
+      - --model-id
+      - ${MODEL_GTE_MULTILINGUAL:-Alibaba-NLP/gte-multilingual-reranker-base}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "64"
+      - --max-batch-tokens
+      - "8192"
+    ports:
+      - "${PORT_GTE_MULTILINGUAL:-8083}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
+  granite-reranker:
+    <<: *tei
+    profiles: ["full"]
+    command:
+      - --model-id
+      - ${MODEL_GRANITE_RERANKER:-ibm-granite/granite-embedding-reranker-english-r2}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "64"
+      - --max-batch-tokens
+      - "8192"
+    ports:
+      - "${PORT_GRANITE_RERANKER:-8084}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
