@@ -128,6 +128,28 @@ services:
   # stay off unless you enable the `full` profile, and they all use GPU 0,
   # which the default two services leave free. Use them to compare rerankers.
   # The MVP needs only `reranker` and `nano`.
+  qwen-embed:
+    <<: *tei
+    profiles: ["full"]
+    command:
+      - --model-id
+      - ${MODEL_QWEN_EMBED:-Qwen/Qwen3-Embedding-0.6B}
+      - --dtype
+      - float16
+      - --max-client-batch-size
+      - "128"
+      - --max-batch-tokens
+      - "8192"
+    ports:
+      - "${PORT_QWEN_EMBED:-8085}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-1}"]
+              capabilities: [gpu]
+
   bge-reranker:
     <<: *tei
     profiles: ["full"]
@@ -215,26 +237,3 @@ services:
             - driver: nvidia
               device_ids: ["${GPU_EXTRAS:-0}"]
               capabilities: [gpu]
-
-  qwen-embed:
-    <<: *tei
-    profiles: ["full"]
-    command:
-      - --model-id
-      - ${MODEL_QWEN_EMBED:-Qwen/Qwen3-Embedding-0.6B}
-      - --dtype
-      - float16
-      - --max-client-batch-size
-      - "128"
-      - --max-batch-tokens
-      - "8192"
-    ports:
-      - "${PORT_QWEN_EMBED:-8085}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_EXTRAS:-0}"]
-              capabilities: [gpu]
-
