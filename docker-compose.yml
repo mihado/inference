@@ -49,9 +49,10 @@ x-nano: &nano
       HUGGINGFACE_HUB_CACHE: /data
     volumes:
       - ${HF_CACHE:-$HOME/.hf-cache}:/data
-    # The vLLM image has python3 but not always curl. The router waits on this
-    # before it starts (`condition: service_healthy`), and the model takes
-    # minutes to load, which is what the wide start period is for.
+    # The vLLM image has python3 but not always curl. Nothing waits on this: the
+    # router starts with the stack and serves what is routable. The check reports
+    # the model load for the operator, and the wide start period stops it from
+    # reporting a failure while the model loads.
     healthcheck:
       test:
         [

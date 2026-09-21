@@ -83,6 +83,12 @@ all labelled containers. Use them to compare rerankers. The MVP needs only
    make models
    ```
 
+6. Show the token rate and the queue of the vLLM engines while they work.
+
+   ```sh
+   make throughput
+   ```
+
 One port must be open to the network: the router on 8100. Clients use the
 router only. They do not use a server port.
 
