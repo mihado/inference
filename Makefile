@@ -38,6 +38,10 @@ health: ## per-server /health (curl, not wget: the TEI image has no wget)
 logs: ## follow one service: make logs SVC=reranker
 	docker compose logs -f $(SVC)
 
+throughput: ## vLLM's tokens/s and queue depth while it works
+	@out="$$(docker compose logs --since 5m nano nano-b 2>/dev/null | grep -E 'Avg prompt throughput|Running:' | tail -20)"; \
+	if [ -n "$$out" ]; then echo "$$out"; else echo "no throughput lines yet - vLLM writes them per interval while it works"; fi
+
 load: ## swap the reranker model: make load MODEL=BAAI/bge-reranker-v2-m3
 	scripts/model.sh load $(MODEL)
 
