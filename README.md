@@ -37,7 +37,7 @@ Two services start by default: `reranker` and `nano`. Five more are optional:
 The optional services stay off until you enable the `full` profile:
 
 ```sh
-make up-full                                   # both defaults, plus all extras
+make up-all                                   # both defaults, plus all extras
 docker compose --profile full up -d --build    # the same
 docker compose --profile full stop             # stop the extras only
 ```
