@@ -206,7 +206,10 @@ Residency is bounded because the box is shared: `OLLAMA_NUM_PARALLEL`, `OLLAMA_M
 
 ## AgentJev
 
-AgentJev is a decision model — Qwen3-0.6B with the LM head removed and a trained candidate head. It answers boolean/choice/score questions with full distributions and decodes zero tokens, so like Laya it runs its own Python service in `agentjev/`, in the `agentjev` profile, on GPU 0. Where Laya is one forward pass per call, AgentJev reuses the KV prefix across a question's candidates: up to 255 choice options in one call, and a 2048-token state budget. Upstream is young (the tree is cloned at a pinned commit in the Dockerfile); weights and code are Apache-2.0.
+- Qwen3-0.6B with the LM head removed and a trained candidate head: boolean/choice/score answers with full distributions, zero decoded tokens.
+- Own Python service in `agentjev/`, in the `agentjev` profile, on GPU 0 — like Laya, TEI and vLLM cannot host it.
+- Reuses the KV prefix across a question's candidates (Laya is one forward pass per call): up to 255 choice options in one call, 2048-token state budget.
+- Upstream is young (tree cloned at a pinned commit in the Dockerfile); weights and code are Apache-2.0.
 
 | Surface | Shape | How the router treats it |
 | --- | --- | --- |
