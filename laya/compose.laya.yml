@@ -4,7 +4,7 @@ name: inference
 # not TEI — it answers TEI's /info, so the router discovers it like any other
 # backend. See README, "Laya".
 #
-#   docker compose -f docker-compose.yml -f docker-compose.laya.yml --profile laya up -d --build
+#   docker compose -f compose.yml -f laya/compose.laya.yml --profile laya up -d --build
 #   make up-laya / make down-laya
 
 services:

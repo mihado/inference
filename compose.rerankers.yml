@@ -4,7 +4,7 @@ name: inference
 # comparing them. Optional and separate, so the default stack is exactly what
 # serves traffic.
 #
-#   docker compose -f docker-compose.yml -f docker-compose.rerankers.yml --profile rerankers up -d
+#   docker compose -f compose.yml -f compose.rerankers.yml --profile rerankers up -d
 #   make up-rerankers / make down-rerankers
 
 x-tei: &tei

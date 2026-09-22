@@ -1,8 +1,15 @@
 # Wrappers over docker compose and scripts/model.sh.
 ROUTER_PORT ?= 8100
 
+# Service-owned targets live with what they serve; included, not duplicated.
+include ollama/ollama.mk
+
 # Every compose file; only the "all" targets name them.
-COMPOSE_ALL := docker compose -f docker-compose.yml -f docker-compose.rerankers.yml -f docker-compose.laya.yml -f docker-compose.qwen-embed.yml
+COMPOSE_ALL := docker compose -f compose.yml -f compose.rerankers.yml -f laya/compose.laya.yml -f ollama/compose.ollama.yml -f compose.qwen-embed.yml
+
+# GPU= moves a profile's services to another card: make up-laya GPU=1. Empty
+# means the compose default (GPU 0 for every profile below).
+GPU ?= $(GPU_EXTRAS)
 
 up: ## build (router) and start the default stack
 	docker compose up -d --build
@@ -20,22 +27,22 @@ down-all: ## stop and remove EVERY profile, plus every ad-hoc slot
 	if [ -n "$$ids" ]; then docker rm -f $$ids; else echo "no ad-hoc slots"; fi
 
 up-rerankers: ## start the default stack plus the four bake-off rerankers (GPU 0)
-	docker compose -f docker-compose.yml -f docker-compose.rerankers.yml --profile rerankers up -d --build
+	GPU_EXTRAS=$(GPU) docker compose -f compose.yml -f compose.rerankers.yml --profile rerankers up -d --build
 
 down-rerankers: ## stop and remove the bake-off rerankers only
-	docker compose -f docker-compose.rerankers.yml --profile rerankers down
+	docker compose -f compose.rerankers.yml --profile rerankers down
 
 up-qwen-embed: ## start the default stack plus the Qwen3 embedder pair
-	docker compose -f docker-compose.yml -f docker-compose.qwen-embed.yml --profile qwen-embed up -d --build
+	docker compose -f compose.yml -f compose.qwen-embed.yml --profile qwen-embed up -d --build
 
 down-qwen-embed: ## stop and remove the Qwen3 embedder pair only
-	docker compose -f docker-compose.qwen-embed.yml --profile qwen-embed down
+	docker compose -f compose.qwen-embed.yml --profile qwen-embed down
 
 up-laya: ## start the default stack plus the Laya decision service (GPU 0)
-	docker compose -f docker-compose.yml -f docker-compose.laya.yml --profile laya up -d --build
+	GPU_EXTRAS=$(GPU) docker compose -f compose.yml -f laya/compose.laya.yml --profile laya up -d --build
 
 down-laya: ## stop and remove the Laya service only
-	docker compose -f docker-compose.laya.yml --profile laya down
+	docker compose -f laya/compose.laya.yml --profile laya down
 
 status: ## live model of each server
 	scripts/model.sh status

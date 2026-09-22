@@ -1,0 +1,43 @@
+name: inference
+
+# The `ollama` profile: Ollama as a GGUF runner beside the router, not behind
+# it. Ollama serves many models from one server with on-demand loading, while
+# the router assumes one model per server with a static id — so this service
+# carries no `tei.backend` label and the router never discovers it. Clients
+# use its port directly, with the full `/api/*` surface and streaming intact.
+#
+#   docker compose -f compose.yml -f compose.ollama.yml --profile ollama up -d
+#   make up-ollama / make down-ollama
+
+services:
+  ollama:
+    profiles: ["ollama"]
+    image: ollama/ollama:${OLLAMA_IMAGE_TAG:-0.34.3}
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-3}
+      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-3}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+    volumes:
+      # Ollama's own blob store (GGUF). Nothing dedupes with the HF cache.
+      - ${OLLAMA_HOME:-$HOME/.ollama}:/root/.ollama
+    healthcheck:
+      # No shell or curl in the image; the binary itself probes the server.
+      test: ["CMD", "/bin/ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    ports:
+      - "${PORT_OLLAMA:-11434}:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            # GPU 1 by default: GPU 0 collects the primaries plus every extras
+            # profile, while GPU 1 holds only the three replica services. One
+            # card also keeps each model whole instead of split across PCIe.
+            - driver: nvidia
+              device_ids: ["${GPU_OLLAMA:-1}"]
+              capabilities: [gpu]
