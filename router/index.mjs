@@ -6,16 +6,14 @@
 // requested model. Dependency-free (node:http + fetch).
 //
 // Backends are the labelled containers on its network (`tei.backend=1`), found
-// through the Docker socket and re-scanned on a TTL. With no socket, name them
-// instead — and name each one by its service, which is the identity the
-// discovery uses too:
-//
-//   BACKENDS="http://reranker:80,http://nano:80" node index.mjs
+// through the Docker socket and re-scanned on a TTL. With no socket, set
+// BACKENDS to the comma-separated backend URLs instead, each named by its
+// service — the same identity the discovery uses.
 //
 // Model -> backend comes from each server's TEI /info (`{ model_id }`) or, for
-// OpenAI-shaped servers like vLLM, its /v1/models list; re-scanned on a TTL.
-// Traefik cannot dispatch on a JSON body, which is why this exists; put
-// TLS/ingress in front of it if you need it.
+// OpenAI-shaped servers like vLLM, its /v1/models list. Traefik cannot dispatch
+// on a JSON body, which is why this exists; put TLS/ingress in front of it if
+// you need it.
 
 import { createServer, request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
@@ -99,19 +97,19 @@ async function scan() {
   const bases = [...new Set([...BACKENDS, ...discovered])];
   await Promise.all(
     bases.map(async (base) => {
-      // TEI names its one model in /info; anything else is asked for a list.
-      const teiId = teiModelId(await fetchJson(`${base}/info`));
-      if (teiId !== null) {
-        addBackend(found, teiId, base);
-        return;
-      }
-      for (const id of openAiModelIds(await fetchJson(`${base}/v1/models`))) {
-        addBackend(found, id, base);
-      }
+      for (const id of await servedModelIds(base)) addBackend(found, id, base);
     }),
   );
   modelBackend = found;
   lastScan = Date.now();
+}
+
+/** Every model id one backend serves: TEI names its one model in /info,
+ * anything else is asked for an OpenAI-style list. */
+async function servedModelIds(base) {
+  const teiId = teiModelId(await fetchJson(`${base}/info`));
+  if (teiId !== null) return [teiId];
+  return openAiModelIds(await fetchJson(`${base}/v1/models`));
 }
 
 function ensureFresh() {
@@ -120,6 +118,26 @@ function ensureFresh() {
     scanning = null;
   });
   return scanning;
+}
+
+/** The next backend in a model's rotation, after a fresh catalogue. */
+async function resolveBackend(model) {
+  await ensureFresh();
+  const turn = turns.get(model) ?? 0;
+  turns.set(model, turn + 1);
+  return pickBackend(modelBackend.get(model), turn);
+}
+
+/** Every public path that carries a model in its JSON body. */
+const POST_PATHS = new Set(["/v1/embeddings", "/rerank", "/v1/rerank", "/v1/decisions"]);
+
+/** Maps a public path to the backend path and body: rerank accepts Cohere's
+ * `documents` for TEI's `texts`; everything else forwards untouched. */
+function backendRequest(path, body) {
+  if (path === "/rerank" || path === "/v1/rerank") {
+    return { path: "/rerank", body: { query: body.query, texts: body.texts ?? body.documents } };
+  }
+  return { path, body };
 }
 
 function sendJson(response, status, body) {
@@ -178,10 +196,7 @@ const server = createServer(async (request, response) => {
     });
   }
 
-  if (
-    request.method === "POST" &&
-    (path === "/v1/embeddings" || path === "/rerank" || path === "/v1/rerank" || path === "/v1/decisions")
-  ) {
+  if (request.method === "POST" && POST_PATHS.has(path)) {
     const body = await readBody(request);
     if (body === undefined) return sendError(response, 400, "Request body must be JSON.", "invalid_request_error");
     if (body === null) return sendError(response, 400, "Request body is required.", "invalid_request_error");
@@ -189,21 +204,12 @@ const server = createServer(async (request, response) => {
     if (typeof model !== "string") {
       return sendError(response, 400, "A model is required.", "invalid_request_error");
     }
-    await ensureFresh();
-    const urls = modelBackend.get(model);
-    const turn = turns.get(model) ?? 0;
-    turns.set(model, turn + 1);
-    const backend = pickBackend(urls, turn);
+    const backend = await resolveBackend(model);
     if (backend === undefined) {
       return sendError(response, 404, `No backend serves model '${model}'.`, "model_not_found");
     }
-    // /v1/decisions is the Laya backend's native typed API: forward it untouched.
-    if (path === "/v1/embeddings" || path === "/v1/decisions") {
-      return proxy(response, backend, path, body);
-    }
-    // TEI's rerank takes `texts`; accept Cohere's `documents` too.
-    const texts = body.texts ?? body.documents;
-    return proxy(response, backend, "/rerank", { query: body.query, texts });
+    const upstream = backendRequest(path, body);
+    return proxy(response, backend, upstream.path, upstream.body);
   }
 
   return sendError(response, 404, "Not found.", "invalid_request_error");
