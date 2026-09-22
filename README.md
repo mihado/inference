@@ -32,6 +32,7 @@ Five services start by default: `router`, plus a pair for each of the two models
 | `rerankers` | `compose.rerankers.yml` | `bge-reranker`, `ms-marco`, `gte-multilingual`, `granite-reranker` | 8099, 8098, 8097, 8096 | 0 |
 | `qwen-embed` | `compose.qwen-embed.yml` | `qwen-embed`, `qwen-embed-b` | 8003, 8004 | 0, 1 |
 | `laya` | `laya/compose.laya.yml` | `laya` (own Python runtime) | 8041 | 0 |
+| `agentjev` | `agentjev/compose.agentjev.yml` | `agentjev` (own Python runtime) | 8042 | 0 |
 | `ollama` | `compose.ollama.yml` | `ollama` (own runtime, beside the router, no label) | 11434 | 1 |
 
 | Target | Effect |
@@ -39,6 +40,7 @@ Five services start by default: `router`, plus a pair for each of the two models
 | `make up-rerankers` / `make down-rerankers` | the four bake-off rerankers |
 | `make up-qwen-embed` / `make down-qwen-embed` | the Qwen3 embedder pair (the index build model) |
 | `make up-laya` / `make down-laya` | the Laya decision service |
+| `make up-agentjev` / `make down-agentjev` | the AgentJev decision service |
 | `make up-ollama` / `make down-ollama` | the Ollama GGUF runner (reference only) |
 | `make up-all` / `make down-all` | every profile, everything |
 
@@ -201,6 +203,48 @@ docker compose -f compose.yml -f ollama/compose.ollama.yml --profile ollama exec
 ```
 
 Residency is bounded because the box is shared: `OLLAMA_NUM_PARALLEL`, `OLLAMA_MAX_LOADED_MODELS`, `OLLAMA_KEEP_ALIVE` (30m — covers a work session's gaps; any call extends it per-request), plus the `GPU_OLLAMA` pin (GPU 1 by default: GPU 0 collects the primaries plus every extras profile, and one card keeps each model whole instead of split across PCIe). Models live in Ollama's own blob store (`OLLAMA_HOME`); nothing dedupes with the HF cache. Upgrade by bumping `OLLAMA_IMAGE_TAG`.
+
+## AgentJev
+
+AgentJev is a decision model — Qwen3-0.6B with the LM head removed and a trained candidate head. It answers boolean/choice/score questions with full distributions and decodes zero tokens, so like Laya it runs its own Python service in `agentjev/`, in the `agentjev` profile, on GPU 0. Where Laya is one forward pass per call, AgentJev reuses the KV prefix across a question's candidates: up to 255 choice options in one call, and a 2048-token state budget. Upstream is young (the tree is cloned at a pinned commit in the Dockerfile); weights and code are Apache-2.0.
+
+| Surface | Shape | How the router treats it |
+| --- | --- | --- |
+| `GET /info` | TEI's `{model_id}` | discovery; `503` until the model is loaded, so an unloaded model is never routed |
+| `GET /health` | liveness | compose healthcheck only |
+| `POST /rerank` | TEI's `{query, texts}` | one boolean per document, sent as one native batch call (32 max — the upstream batch limit, so no chunking) |
+| `POST /api/evaluate` | `{state, questions}` or batched `{requests}` | forwarded verbatim |
+
+```sh
+make up-agentjev                          # the default stack plus AgentJev
+make up-agentjev GPU=1                    # same, on the other card
+```
+
+Clients keep using the router port. The `model` field names the checkpoint:
+
+```sh
+# Rerank: every document is one boolean, all documents in one batch call.
+curl -s localhost:8100/rerank -H 'content-type: application/json' -d '{
+  "model": "aimeigaoshou/agent-jev",
+  "query": "Do all tests pass on this patch?",
+  "texts": ["Tests run: 14, Failures: 1.",
+            "Tests run: 25, Failures: 0.",
+            "The office is closed on Friday."]}'
+
+# Native decisions: ask your own questions, or batch states.
+curl -s localhost:8100/api/evaluate -H 'content-type: application/json' -d '{
+  "model": "aimeigaoshou/agent-jev",
+  "state": "Tests run: 14, Failures: 1.",
+  "questions": [{"id": "done", "type": "boolean",
+                 "question": "Are all tests passing?"}]}'
+```
+
+### Honest limits
+
+- Over-length input is a hard refusal at 2048 tokens, mapped to 400 — never a silent truncation.
+- Temperatures ship fitted on held-out calibration cases; refit on your own data before gating on a probability (same advice as Laya).
+- The 79.25% typed-decisions figure is a specialist fit on that benchmark's split (their protocol holds out dev and calibration and discloses it); Jev's 72.7% is zero-shot. Different measurements, not a leaderboard.
+- Not yet measured here. Same eval, `model=aimeigaoshou/agent-jev`, same 500 questions.
 
 ## Measured results
 
