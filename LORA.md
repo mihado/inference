@@ -4,6 +4,13 @@
 - No new GPUs until a measured workload demands one: every technique here exists to fit training into memory already owned.
 - Status: learning notes, not a runbook.
 
+## In brief
+
+- **LoRA** — freeze the big weights, learn a tiny side-path (`ΔW = B·A` at rank 8–64). Trains <1% of parameters, merges back with zero latency cost. Best for adapting big models cheaply; pointless for small ones you'd just fully fine-tune.
+- **QLoRA** — LoRA on a 4-bit quantized frozen base. Fits an 8B in ~12–20GB. Same adapters, smaller footprint, fussier numerics.
+- **DoRA** — splits each weight into magnitude (learned fully) and direction (learned by LoRA). Closes most of the gap to full fine-tuning; try it when plain LoRA underperforms.
+- **The rest in one breath** — AdaLoRA (rank per layer, adaptive), DyLoRA (one adapter, any rank), rsLoRA (stable high ranks), LoRA+ (bigger lr on half), VeRA (tiniest, weakest), PiSSA (smarter init, faster convergence).
+
 ## LoRA: frozen base, learned side-path
 
 - Freeze the pretrained weights `W`; learn only `ΔW = B·A` with rank r far below the dimensions (8–64 against thousands).
