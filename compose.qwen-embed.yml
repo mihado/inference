@@ -4,7 +4,7 @@ name: inference
 # replica per GPU. Optional, so the default stack stays the MVP — `reranker` and
 # `nano`. See README, "Profiles".
 #
-#   docker compose -f docker-compose.yml -f docker-compose.qwen-embed.yml --profile qwen-embed up -d
+#   docker compose -f compose.yml -f compose.qwen-embed.yml --profile qwen-embed up -d
 #   make up-qwen-embed / make down-qwen-embed
 
 x-qwen: &qwen

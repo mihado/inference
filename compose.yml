@@ -77,18 +77,6 @@ x-nano: &nano
       - --port
       - "80"
 
-x-qwen: &qwen
-    <<: *tei
-    command:
-      - --model-id
-      - ${MODEL_QWEN_EMBED:-Qwen/Qwen3-Embedding-0.6B}
-      - --dtype
-      - float16
-      - --max-client-batch-size
-      - "128"
-      - --max-batch-tokens
-      - "8192"
-
 services:
   router:
     build: ./router
