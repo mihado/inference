@@ -31,7 +31,10 @@ if [[ -z "$GPU" ]]; then
     sort -t, -k2 -nr | head -1 | cut -d, -f1 | tr -d ' ')"
 fi
 if [[ -z "$PORT" ]]; then
-  for candidate in $(seq 8087 8100); do
+  # 8091-8099: every model port below (8080-8090) and the router (8100) belong
+  # to a compose service, default or profiled — an ad-hoc slot must not take
+  # one of theirs while its profile happens to be down.
+  for candidate in $(seq 8091 8099); do
     if ! docker ps --format '{{.Ports}}' | grep -q ":$candidate->"; then
       PORT="$candidate"
       break

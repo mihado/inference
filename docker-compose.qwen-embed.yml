@@ -1,0 +1,61 @@
+name: inference
+
+# The `qwen-embed` profile: the Qwen3 embedder pair (the index build model), one
+# replica per GPU. Optional, so the default stack stays the MVP — `reranker` and
+# `nano`. See README, "Profiles".
+#
+#   docker compose -f docker-compose.yml -f docker-compose.qwen-embed.yml --profile qwen-embed up -d
+#   make up-qwen-embed / make down-qwen-embed
+
+x-qwen: &qwen
+  image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
+  restart: unless-stopped
+  # The router discovers every labelled container as a backend.
+  labels:
+    - tei.backend=1
+  environment:
+    HUGGINGFACE_HUB_CACHE: /data
+  volumes:
+    - ${HF_CACHE:-$HOME/.hf-cache}:/data
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:80/health || exit 1"]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 600s
+  command:
+    - --model-id
+    - ${MODEL_QWEN_EMBED:-Qwen/Qwen3-Embedding-0.6B}
+    - --dtype
+    - float16
+    - --max-client-batch-size
+    - "128"
+    - --max-batch-tokens
+    - "8192"
+
+services:
+  qwen-embed:
+    <<: *qwen
+    profiles: ["qwen-embed"]
+    ports:
+      - "${PORT_QWEN_EMBED:-8085}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_QWEN_EMBED:-0}"]
+              capabilities: [gpu]
+
+  qwen-embed-b:
+    <<: *qwen
+    profiles: ["qwen-embed"]
+    ports:
+      - "${PORT_QWEN_EMBED_B:-8088}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_QWEN_EMBED_B:-1}"]
+              capabilities: [gpu]

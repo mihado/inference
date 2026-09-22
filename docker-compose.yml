@@ -1,11 +1,5 @@
 name: inference
 
-# Two model servers on a 2x RTX A4000 box, fronted by a model-aware router:
-# one TEI reranker and one vLLM embedder (voyage-4-nano). Both use GPU 1, so
-# GPU 0 stays free. One host weight cache is shared. The model of each service
-# is an .env variable. The `full` profile adds the four other rerankers and the
-# Qwen3 embedder on GPU 0. See README.md.
-
 x-tei: &tei
   image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
   restart: unless-stopped
@@ -36,7 +30,7 @@ x-reranker: &reranker
       - "8192"
 
 # voyage-4-nano is bf16 and needs vLLM — under TEI it returns
-  # NaN at fp16 and runs out of memory at fp32.
+# NaN at fp16 and runs out of memory at fp32.
 x-nano: &nano
     image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-v0.16.0}
     restart: unless-stopped
@@ -158,28 +152,4 @@ services:
           devices:
             - driver: nvidia
               device_ids: ["${GPU_NANO_B:-1}"]
-              capabilities: [gpu]
-
-  qwen-embed:
-    <<: *qwen
-    ports:
-      - "${PORT_QWEN_EMBED:-8085}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_QWEN_EMBED:-0}"]
-              capabilities: [gpu]
-
-  qwen-embed-b:
-    <<: *qwen
-    ports:
-      - "${PORT_QWEN_EMBED_B:-8088}:80"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ["${GPU_QWEN_EMBED_B:-1}"]
               capabilities: [gpu]

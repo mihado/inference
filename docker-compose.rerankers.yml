@@ -1,13 +1,12 @@
 name: inference
 
-# The `full` profile: the four other rerankers from the bake-off, for comparing
-# them. Optional and separate, so the default stack is exactly what serves
-# traffic.
+# The `rerankers` profile: the four other rerankers from the bake-off, for
+# comparing them. Optional and separate, so the default stack is exactly what
+# serves traffic.
 #
-#   docker compose -f docker-compose.yml -f docker-compose.full.yml --profile full up -d
-#
-# The anchor below is a copy of the one in docker-compose.yml — merge keys do not
-# cross files, so that duplication is the tool's, not a choice.
+#   docker compose -f docker-compose.yml -f docker-compose.rerankers.yml --profile rerankers up -d
+#   make up-rerankers / make down-rerankers
+
 x-tei: &tei
   image: ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG:-86-1.9.1}
   restart: unless-stopped
@@ -28,7 +27,7 @@ x-tei: &tei
 services:
   bge-reranker:
     <<: *tei
-    profiles: ["full"]
+    profiles: ["rerankers"]
     command:
       - --model-id
       - ${MODEL_BGE_RERANKER:-BAAI/bge-reranker-v2-m3}
@@ -50,7 +49,7 @@ services:
 
   ms-marco:
     <<: *tei
-    profiles: ["full"]
+    profiles: ["rerankers"]
     command:
       - --model-id
       - ${MODEL_MS_MARCO:-cross-encoder/ms-marco-MiniLM-L6-v2}
@@ -72,7 +71,7 @@ services:
 
   gte-multilingual:
     <<: *tei
-    profiles: ["full"]
+    profiles: ["rerankers"]
     command:
       - --model-id
       - ${MODEL_GTE_MULTILINGUAL:-Alibaba-NLP/gte-multilingual-reranker-base}
@@ -94,7 +93,7 @@ services:
 
   granite-reranker:
     <<: *tei
-    profiles: ["full"]
+    profiles: ["rerankers"]
     command:
       - --model-id
       - ${MODEL_GRANITE_RERANKER:-ibm-granite/granite-embedding-reranker-english-r2}

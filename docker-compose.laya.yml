@@ -1,0 +1,44 @@
+name: inference
+
+# The `laya` profile: the Laya decision model on its own Python runtime (laya/),
+# not TEI — it answers TEI's /info, so the router discovers it like any other
+# backend. See README, "Laya".
+#
+#   docker compose -f docker-compose.yml -f docker-compose.laya.yml --profile laya up -d --build
+#   make up-laya / make down-laya
+
+services:
+  laya:
+    profiles: ["laya"]
+    build: ./laya
+    restart: unless-stopped
+    labels:
+      - tei.backend=1
+    environment:
+      HUGGINGFACE_HUB_CACHE: /data
+      LAYA_MODEL: ${MODEL_LAYA:-convaiinnovations/laya}
+      # Empty = the repo root checkpoint (English). One of: multilingual,
+      # typed-decisions. See README, "Laya".
+      LAYA_SUBFOLDER: ${LAYA_SUBFOLDER:-}
+      LAYA_MAX_TEXTS: ${LAYA_MAX_TEXTS:-64}
+    volumes:
+      - ${HF_CACHE:-$HOME/.hf-cache}:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/health')\" || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+    ports:
+      - "${PORT_LAYA:-8090}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]

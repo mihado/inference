@@ -2,8 +2,8 @@
 //
 // One endpoint that fronts N single-model servers (TEI and OpenAI-shaped, e.g.
 // vLLM): it reports the union of their models and dispatches each
-// /v1/embeddings and /rerank call to the server serving the requested model.
-// Dependency-free (node:http + fetch).
+// /v1/embeddings, /rerank and /v1/decisions call to the server serving the
+// requested model. Dependency-free (node:http + fetch).
 //
 // Backends are the labelled containers on its network (`tei.backend=1`), found
 // through the Docker socket and re-scanned on a TTL. With no socket, name them
@@ -178,7 +178,10 @@ const server = createServer(async (request, response) => {
     });
   }
 
-  if (request.method === "POST" && (path === "/v1/embeddings" || path === "/rerank" || path === "/v1/rerank")) {
+  if (
+    request.method === "POST" &&
+    (path === "/v1/embeddings" || path === "/rerank" || path === "/v1/rerank" || path === "/v1/decisions")
+  ) {
     const body = await readBody(request);
     if (body === undefined) return sendError(response, 400, "Request body must be JSON.", "invalid_request_error");
     if (body === null) return sendError(response, 400, "Request body is required.", "invalid_request_error");
@@ -194,7 +197,10 @@ const server = createServer(async (request, response) => {
     if (backend === undefined) {
       return sendError(response, 404, `No backend serves model '${model}'.`, "model_not_found");
     }
-    if (path === "/v1/embeddings") return proxy(response, backend, "/v1/embeddings", body);
+    // /v1/decisions is the Laya backend's native typed API: forward it untouched.
+    if (path === "/v1/embeddings" || path === "/v1/decisions") {
+      return proxy(response, backend, path, body);
+    }
     // TEI's rerank takes `texts`; accept Cohere's `documents` too.
     const texts = body.texts ?? body.documents;
     return proxy(response, backend, "/rerank", { query: body.query, texts });

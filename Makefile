@@ -1,29 +1,41 @@
 # Wrappers over docker compose and scripts/model.sh.
 ROUTER_PORT ?= 8100
 
-# The bake-off extras live in their own file, so only the targets that mean
-# "everything" name both. `up`/`down` stay single-file on purpose.
-COMPOSE_ALL := docker compose -f docker-compose.yml -f docker-compose.full.yml
+# Every compose file; only the "all" targets name them.
+COMPOSE_ALL := docker compose -f docker-compose.yml -f docker-compose.rerankers.yml -f docker-compose.laya.yml -f docker-compose.qwen-embed.yml
 
-up: ## build (router) and start both servers
+up: ## build (router) and start the default stack
 	docker compose up -d --build
 
-up-all: ## start both servers plus every extra slot (bake-off)
+up-all: ## the default stack plus every profile
 	$(COMPOSE_ALL) --profile "*" up -d --build
 
 down: ## stop and remove the default-profile stack
 	docker compose down
 
-# `up`/`down` act on the default profile; `up-all`/`down-all` act on every
-# profile, so the two pairs read as one scale of scope. `down` only removes
-# services in the active profiles, so anything started with `up-all` (or an
-# older run with other profiles) survives it, and the ad-hoc
-# TEI slots from `make run` were never compose services at all. This is the
-# target that leaves nothing running.
+# Loads every profile file, so it removes the router too — nothing survives.
 down-all: ## stop and remove EVERY profile, plus every ad-hoc slot
 	$(COMPOSE_ALL) --profile "*" down --remove-orphans
 	@ids="$$(docker ps -aq --filter label=tei.backend=1)"; \
 	if [ -n "$$ids" ]; then docker rm -f $$ids; else echo "no ad-hoc slots"; fi
+
+up-rerankers: ## start the default stack plus the four bake-off rerankers (GPU 0)
+	docker compose -f docker-compose.yml -f docker-compose.rerankers.yml --profile rerankers up -d --build
+
+down-rerankers: ## stop and remove the bake-off rerankers only
+	docker compose -f docker-compose.rerankers.yml --profile rerankers down
+
+up-qwen-embed: ## start the default stack plus the Qwen3 embedder pair
+	docker compose -f docker-compose.yml -f docker-compose.qwen-embed.yml --profile qwen-embed up -d --build
+
+down-qwen-embed: ## stop and remove the Qwen3 embedder pair only
+	docker compose -f docker-compose.qwen-embed.yml --profile qwen-embed down
+
+up-laya: ## start the default stack plus the Laya decision service (GPU 0)
+	docker compose -f docker-compose.yml -f docker-compose.laya.yml --profile laya up -d --build
+
+down-laya: ## stop and remove the Laya service only
+	docker compose -f docker-compose.laya.yml --profile laya down
 
 status: ## live model of each server
 	scripts/model.sh status
@@ -41,12 +53,6 @@ logs: ## follow one service: make logs SVC=reranker
 throughput: ## vLLM's tokens/s and queue depth while it works
 	@out="$$(docker compose logs --since 5m nano nano-b 2>/dev/null | grep -E 'Avg prompt throughput|Running:' | tail -20)"; \
 	if [ -n "$$out" ]; then echo "$$out"; else echo "no throughput lines yet - vLLM writes them per interval while it works"; fi
-
-load: ## swap the reranker model: make load MODEL=BAAI/bge-reranker-v2-m3
-	scripts/model.sh load $(MODEL)
-
-unload: ## stop the reranker and free its VRAM
-	scripts/model.sh unload
 
 run: ## start a free ad-hoc TEI slot: make run MODEL=... [NAME=] [GPU=] [PORT=]
 	scripts/run.sh "$(MODEL)" $(if $(NAME),--name $(NAME)) $(if $(GPU),--gpu $(GPU)) $(if $(PORT),--port $(PORT))
