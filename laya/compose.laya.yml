@@ -34,7 +34,7 @@ services:
       retries: 5
       start_period: 300s
     ports:
-      - "${PORT_LAYA:-8090}:80"
+      - "${PORT_LAYA:-8041}:80"
     deploy:
       resources:
         reservations:

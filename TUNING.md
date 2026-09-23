@@ -53,7 +53,7 @@ Engine 000: Avg prompt throughput: 55319.7 tokens/s, Running: 123 reqs, Waiting:
 The router can receive backends from two sources: a static list and the Docker socket. This is dangerous.
 
 - Compose names a container `<project>-<service>-<index>`. The network alias of the container is the service name.
-- Two sources gave one container two names: `nano` and `inference-nano-1`. Both names resolved to the same container.
+- Two sources gave one container two names: `voyage-embed` and `inference-voyage-embed-1`. Both names resolved to the same container.
 - The rotation used `turn % urls.length`. Three entries gave one container two of every three requests. The second container served at half rate, and the token rates showed a ratio of 1.9 to 1.
 - The identity of a container is its compose service label, `com.docker.compose.service`. Name a backend by that label. A discovered container and a static entry then agree, and the list has one entry for each container.
 

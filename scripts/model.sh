@@ -21,13 +21,13 @@ print_service() {
     model="$(grep -E "^${env_key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true)"
     state="stopped"
   fi
-  printf '%-9s %-52s %s\n' "$service" "${model:-<compose default>}" "${state:-unknown}"
+  printf '%-15s %-52s %s\n' "$service" "${model:-<compose default>}" "${state:-unknown}"
 }
 
 case "${1:-}" in
   status)
     print_service reranker '--model-id' MODEL_RERANKER
-    print_service nano '--model' MODEL_NANO
+    print_service voyage-embed '--model' MODEL_VOYAGE_EMBED
     ;;
   *)
     echo "usage: scripts/model.sh status" >&2
