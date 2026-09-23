@@ -1,23 +1,23 @@
 # inference
 
-This repository runs model servers on a 2x RTX A4000 box. A router puts them behind one address. Every model has a replica on each GPU, so the router can rotate a model's requests across both cards. The default stack is the MVP — `reranker` and `nano`; every optional service is a profile in its own compose file (see "Profiles").
+This repository runs model servers on a 2x RTX A4000 box. A router puts them behind one address. Every model has a replica on each GPU, so the router can rotate a model's requests across both cards. The default stack is the MVP — `reranker` and `voyage-embed`; every optional service is a profile in its own compose file (see "Profiles").
 
 The rules for measurement and tuning are in [TUNING.md](TUNING.md).
 
 The two servers are:
 
 - `reranker` — the local reranker.
-- `nano` — the embedder for the `voyage-4-nano` model.
+- `voyage-embed` — the embedder for the `voyage-4-nano` model.
 
 ## Servers
 
 | Name | Port | GPU | Runtime | Model |
 | --- | --- | --- | --- | --- |
-| `reranker` | 8080 | 1 | TEI | `Alibaba-NLP/gte-reranker-modernbert-base` |
-| `nano` | 8086 | 1 | vLLM | `voyageai/voyage-4-nano` |
+| `reranker` | 8021 | 1 | TEI | `Alibaba-NLP/gte-reranker-modernbert-base` |
+| `voyage-embed` | 8001 | 1 | vLLM | `voyageai/voyage-4-nano` |
 | `router` | 8100 | — | Node.js | — |
 
-`nano` uses vLLM, not TEI. `voyage-4-nano` is a bf16 model:
+`voyage-embed` uses vLLM, not TEI. `voyage-4-nano` is a bf16 model:
 
 - At fp16, TEI returns NaN vectors for some inputs.
 - At fp32, TEI runs out of memory.
@@ -25,13 +25,13 @@ The two servers are:
 
 ## Profiles
 
-Five services start by default: `router`, plus a pair for each of the two models — `reranker` and `nano` — with the second replica on the other GPU. That is the MVP. Everything optional is a profile in its own compose file, and every profile has a pair of targets:
+Five services start by default: `router`, plus a pair for each of the two models — `reranker` and `voyage-embed` — with the second replica on the other GPU. That is the MVP. Everything optional is a profile in its own compose file, and every profile has a pair of targets:
 
 | Profile | File | Services | Ports | GPU |
 | --- | --- | --- | --- | --- |
-| `rerankers` | `compose.rerankers.yml` | `bge-reranker`, `ms-marco`, `gte-multilingual`, `granite-reranker` | 8081–8084 | 0 |
-| `qwen-embed` | `compose.qwen-embed.yml` | `qwen-embed`, `qwen-embed-b` | 8085, 8088 | 0, 1 |
-| `laya` | `laya/compose.laya.yml` | `laya` (own Python runtime) | 8090 | 0 |
+| `rerankers` | `compose.rerankers.yml` | `bge-reranker`, `ms-marco`, `gte-multilingual`, `granite-reranker` | 8099, 8098, 8097, 8096 | 0 |
+| `qwen-embed` | `compose.qwen-embed.yml` | `qwen-embed`, `qwen-embed-b` | 8003, 8004 | 0, 1 |
+| `laya` | `laya/compose.laya.yml` | `laya` (own Python runtime) | 8041 | 0 |
 | `ollama` | `compose.ollama.yml` | `ollama` (own runtime, beside the router, no label) | 11434 | 1 |
 
 | Target | Effect |
@@ -41,6 +41,8 @@ Five services start by default: `router`, plus a pair for each of the two models
 | `make up-laya` / `make down-laya` | the Laya decision service |
 | `make up-ollama` / `make down-ollama` | the Ollama GGUF runner (reference only) |
 | `make up-all` / `make down-all` | every profile, everything |
+
+Port bands, so each kind of server lives in its own mental space: 8001–8004 embeds, 8021–8022 rerankers, 8041 upward Python services, 8080–8099 optionals and ad-hoc slots (pinned top-down from 8099, ad-hoc bottom-up from 8080), 8100 router.
 
 Each `up-*` starts the default stack as well, so one command always leaves a router in front of what it started. Each `down-*` removes only its own profile's services — the router and the default models keep running. `GPU=` moves a profile's services to another card (`make up-laya GPU=1`); empty means each profile's default. The compose command underneath, for the rerankers profile:
 
@@ -103,11 +105,11 @@ curl -s localhost:8100/v1/embeddings -H 'content-type: application/json' \
 
 ## Change a model
 
-The defaults live in the compose files — `MODEL_NANO` for nano (vLLM) and `MODEL_RERANKER` for the reranker (TEI). To change one, set it in `.env` (optional overrides only) and recreate. Each server loads one model at start, so a change is a recreate:
+The defaults live in the compose files — `MODEL_VOYAGE_EMBED` for voyage-embed (vLLM) and `MODEL_RERANKER` for the reranker (TEI). To change one, set it in `.env` (optional overrides only) and recreate. Each server loads one model at start, so a change is a recreate:
 
 ```sh
 echo 'MODEL_RERANKER=BAAI/bge-reranker-v2-m3' >>.env
-docker compose up -d nano reranker
+docker compose up -d voyage-embed reranker
 ```
 
 For a short test, do not change the compose file. Start a free slot instead. The script finds a free GPU and a free port. The router finds the new slot.

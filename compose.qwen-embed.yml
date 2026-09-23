@@ -2,7 +2,7 @@ name: inference
 
 # The `qwen-embed` profile: the Qwen3 embedder pair (the index build model), one
 # replica per GPU. Optional, so the default stack stays the MVP — `reranker` and
-# `nano`. See README, "Profiles".
+# `voyage-embed`. See README, "Profiles".
 #
 #   docker compose -f compose.yml -f compose.qwen-embed.yml --profile qwen-embed up -d
 #   make up-qwen-embed / make down-qwen-embed
@@ -38,7 +38,7 @@ services:
     <<: *qwen
     profiles: ["qwen-embed"]
     ports:
-      - "${PORT_QWEN_EMBED:-8085}:80"
+      - "${PORT_QWEN_EMBED:-8003}:80"
     deploy:
       resources:
         reservations:
@@ -51,7 +51,7 @@ services:
     <<: *qwen
     profiles: ["qwen-embed"]
     ports:
-      - "${PORT_QWEN_EMBED_B:-8088}:80"
+      - "${PORT_QWEN_EMBED_B:-8004}:80"
     deploy:
       resources:
         reservations:

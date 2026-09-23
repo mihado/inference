@@ -52,13 +52,13 @@ models: ## the router's union of models
 
 health: ## per-server /health (curl, not wget: the TEI image has no wget)
 	@printf 'reranker  '; docker compose exec -T reranker curl -fsS http://127.0.0.1:80/health 2>/dev/null || printf 'down'; echo
-	@printf 'nano      '; docker compose exec -T nano python3 -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:80/health')" >/dev/null 2>&1 && echo ok || echo down
+	@printf 'voyage-embed '; docker compose exec -T voyage-embed python3 -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:80/health')" >/dev/null 2>&1 && echo ok || echo down
 
 logs: ## follow one service: make logs SVC=reranker
 	docker compose logs -f $(SVC)
 
 throughput: ## vLLM's tokens/s and queue depth while it works
-	@out="$$(docker compose logs --since 5m nano nano-b 2>/dev/null | grep -E 'Avg prompt throughput|Running:' | tail -20)"; \
+	@out="$$(docker compose logs --since 5m voyage-embed voyage-embed-b 2>/dev/null | grep -E 'Avg prompt throughput|Running:' | tail -20)"; \
 	if [ -n "$$out" ]; then echo "$$out"; else echo "no throughput lines yet - vLLM writes them per interval while it works"; fi
 
 run: ## start a free ad-hoc TEI slot: make run MODEL=... [NAME=] [GPU=] [PORT=]

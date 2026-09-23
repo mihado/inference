@@ -31,7 +31,7 @@ x-reranker: &reranker
 
 # voyage-4-nano is bf16 and needs vLLM — under TEI it returns
 # NaN at fp16 and runs out of memory at fp32.
-x-nano: &nano
+x-voyage: &voyage
     image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-v0.16.0}
     restart: unless-stopped
     # The router discovers every labelled container as a backend.
@@ -59,9 +59,9 @@ x-nano: &nano
       start_period: 900s
     command:
       - --model
-      - ${MODEL_NANO:-voyageai/voyage-4-nano}
+      - ${MODEL_VOYAGE_EMBED:-voyageai/voyage-4-nano}
       - --served-model-name
-      - ${MODEL_NANO:-voyageai/voyage-4-nano}
+      - ${MODEL_VOYAGE_EMBED:-voyageai/voyage-4-nano}
       - --runner
       - pooling
       - --trust-remote-code
@@ -72,7 +72,7 @@ x-nano: &nano
       - --max-model-len
       - "32768"
       - --gpu-memory-utilization
-      - "${NANO_GPU_MEMORY:-0.5}"
+      - "${VOYAGE_GPU_MEMORY:-0.5}"
       - --enforce-eager
       - --port
       - "80"
@@ -92,12 +92,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       - reranker
-      - nano
+      - voyage-embed
 
   reranker:
     <<: *reranker
     ports:
-      - "${PORT_RERANKER:-8080}:80"
+      - "${PORT_RERANKER:-8021}:80"
     deploy:
       resources:
         reservations:
@@ -109,7 +109,7 @@ services:
   reranker-b:
     <<: *reranker
     ports:
-      - "${PORT_RERANKER_B:-8089}:80"
+      - "${PORT_RERANKER_B:-8022}:80"
     deploy:
       resources:
         reservations:
@@ -118,26 +118,26 @@ services:
               device_ids: ["${GPU_RERANKER_B:-1}"]
               capabilities: [gpu]
 
-  nano:
-    <<: *nano
+  voyage-embed:
+    <<: *voyage
     ports:
-      - "${PORT_NANO:-8086}:80"
+      - "${PORT_VOYAGE_EMBED:-8001}:80"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["${GPU_NANO:-0}"]
+              device_ids: ["${GPU_VOYAGE_EMBED:-0}"]
               capabilities: [gpu]
 
-  nano-b:
-    <<: *nano
+  voyage-embed-b:
+    <<: *voyage
     ports:
-      - "${PORT_NANO_B:-8087}:80"
+      - "${PORT_VOYAGE_EMBED_B:-8002}:80"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ["${GPU_NANO_B:-1}"]
+              device_ids: ["${GPU_VOYAGE_EMBED_B:-1}"]
               capabilities: [gpu]
