@@ -2,7 +2,7 @@
 //
 // One endpoint that fronts N single-model servers (TEI and OpenAI-shaped, e.g.
 // vLLM): it reports the union of their models and dispatches each
-// /v1/embeddings, /rerank and /v1/decisions call to the server serving the
+// /v1/embeddings, /rerank, /v1/decisions and /api/evaluate call to the server serving the
 // requested model. Dependency-free (node:http + fetch).
 //
 // Backends are the labelled containers on its network (`tei.backend=1`), found
@@ -129,7 +129,7 @@ async function resolveBackend(model) {
 }
 
 /** Every public path that carries a model in its JSON body. */
-const POST_PATHS = new Set(["/v1/embeddings", "/rerank", "/v1/rerank", "/v1/decisions"]);
+const POST_PATHS = new Set(["/v1/embeddings", "/rerank", "/v1/rerank", "/v1/decisions", "/api/evaluate"]);
 
 /** Maps a public path to the backend path and body: rerank accepts Cohere's
  * `documents` for TEI's `texts`; everything else forwards untouched. */

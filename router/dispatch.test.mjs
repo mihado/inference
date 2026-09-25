@@ -121,6 +121,14 @@ test("POST /v1/decisions forwards untouched", async () => {
   assert.deepEqual(body.body, payload);
 });
 
+test("POST /api/evaluate forwards untouched", async () => {
+  const payload = { model: "test-rerank", state: "s", questions: [{ id: "q1", type: "boolean", question: "done?" }] };
+  const { status, body } = await post("/api/evaluate", payload);
+  assert.equal(status, 200);
+  assert.equal(body.path, "/api/evaluate");
+  assert.deepEqual(body.body, payload);
+});
+
 test("POST /v1/embeddings forwards untouched to the OpenAI-shaped backend", async () => {
   const payload = { model: "test-embed", input: "hi" };
   const { status, body } = await post("/v1/embeddings", payload);
