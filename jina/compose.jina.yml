@@ -1,0 +1,43 @@
+name: inference
+
+# The `jina` profile: the Jina v3.5 listwise reranker on its own Python runtime
+# (jina/), not TEI — it answers TEI's /info, so the router discovers it like
+# any other backend. Non-commercial weights (CC-BY-NC-4.0): local dev and eval
+# only. See README, "Jina".
+#
+#   docker compose -f compose.yml -f jina/compose.jina.yml --profile jina up -d --build
+#   make up-jina / make down-jina
+
+services:
+  jina:
+    profiles: ["jina"]
+    build: ./jina
+    restart: unless-stopped
+    labels:
+      - tei.backend=1
+    environment:
+      HUGGINGFACE_HUB_CACHE: /data
+      JINA_MODEL: ${MODEL_JINA_RERANKER:-jinaai/jina-reranker-v3.5}
+      JINA_DEVICE: ${JINA_DEVICE:-}
+      JINA_MAX_TEXTS: ${JINA_MAX_TEXTS:-64}
+    volumes:
+      - ${HF_CACHE:-$HOME/.hf-cache}:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/health')\" || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+    ports:
+      - "${PORT_JINA:-8095}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]

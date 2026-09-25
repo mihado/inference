@@ -5,7 +5,7 @@ ROUTER_PORT ?= 8100
 include ollama/ollama.mk
 
 # Every compose file; only the "all" targets name them.
-COMPOSE_ALL := docker compose -f compose.yml -f compose.rerankers.yml -f laya/compose.laya.yml -f agentjev/compose.agentjev.yml -f ollama/compose.ollama.yml -f compose.qwen-embed.yml
+COMPOSE_ALL := docker compose -f compose.yml -f compose.rerankers.yml -f laya/compose.laya.yml -f agentjev/compose.agentjev.yml -f ollama/compose.ollama.yml -f jina/compose.jina.yml -f compose.qwen-embed.yml
 
 # GPU= moves a profile's services to another card: make up-laya GPU=1. Empty
 # means the compose default (GPU 0 for every profile below).
@@ -49,6 +49,12 @@ up-agentjev: ## start the default stack plus the AgentJev decision service (GPU 
 
 down-agentjev: ## stop and remove the AgentJev service only
 	docker compose -f agentjev/compose.agentjev.yml --profile agentjev down
+
+up-jina: ## start the default stack plus the Jina reranker (GPU 0, non-commercial)
+	GPU_EXTRAS=$(GPU) docker compose -f compose.yml -f jina/compose.jina.yml --profile jina up -d --build
+
+down-jina: ## stop and remove the Jina service only
+	docker compose -f jina/compose.jina.yml --profile jina down
 
 status: ## live model of each server
 	scripts/model.sh status
