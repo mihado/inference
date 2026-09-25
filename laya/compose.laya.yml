@@ -2,7 +2,7 @@ name: inference
 
 # The `laya` profile: the Laya decision model on its own Python runtime (laya/),
 # not TEI — it answers TEI's /info, so the router discovers it like any other
-# backend. See README, "Laya".
+# backend. See laya/README.md.
 #
 #   docker compose -f compose.yml -f laya/compose.laya.yml --profile laya up -d --build
 #   make up-laya / make down-laya
@@ -18,7 +18,7 @@ services:
       HUGGINGFACE_HUB_CACHE: /data
       LAYA_MODEL: ${MODEL_LAYA:-convaiinnovations/laya}
       # Empty = the repo root checkpoint (English). One of: multilingual,
-      # typed-decisions. See README, "Laya".
+      # typed-decisions. See laya/README.md.
       LAYA_SUBFOLDER: ${LAYA_SUBFOLDER:-}
       LAYA_MAX_TEXTS: ${LAYA_MAX_TEXTS:-64}
     volumes:
