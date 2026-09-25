@@ -34,6 +34,7 @@ Five services start by default: `router`, plus a pair for each of the two models
 | `laya` | `laya/compose.laya.yml` | `laya` (own Python runtime) | 8041 | 0 |
 | `agentjev` | `agentjev/compose.agentjev.yml` | `agentjev` (own Python runtime) | 8042 | 0 |
 | `jina` | `jina/compose.jina.yml` | `jina` (own Python runtime, non-commercial) | 8095 | 0 |
+| `jina-embed` | `jina-embed/compose.jina-embed.yml` | `jina-embed` (own Python runtime, non-commercial) | 8094 | 0 |
 | `ollama` | `compose.ollama.yml` | `ollama` (own runtime, beside the router, no label) | 11434 | 1 |
 
 | Target | Effect |
@@ -43,6 +44,7 @@ Five services start by default: `router`, plus a pair for each of the two models
 | `make up-laya` / `make down-laya` | the Laya decision service |
 | `make up-agentjev` / `make down-agentjev` | the AgentJev decision service |
 | `make up-jina` / `make down-jina` | the Jina reranker (non-commercial, local dev) |
+| `make up-jina-embed` / `make down-jina-embed` | the Jina embedder (non-commercial, local dev) |
 | `make up-ollama` / `make down-ollama` | the Ollama GGUF runner (reference only) |
 | `make up-all` / `make down-all` | every profile, everything |
 
@@ -257,6 +259,8 @@ curl -s localhost:8100/api/evaluate -H 'content-type: application/json' -d '{
 - Own Python service in `jina/`, in the `jina` profile, on GPU 0 — TEI cannot host custom modeling code.
 - Non-commercial weights (CC-BY-NC-4.0): local dev and eval only, never serving. Bake-off reference, not a serving candidate.
 - `POST /rerank` takes TEI's `{query, texts}` (64 max) straight into the native call; no router change was needed.
+
+The sibling `jina-embed` service serves `jina-embeddings-v3` (XLM-R embedder, 1024 dims) behind OpenAI's `/v1/embeddings`, which the router already forwards verbatim — also no router change. Same non-commercial terms, same local-dev scope. Its transformers pin stays on the 4.x line: the custom modeling code targets the 4.x module API and breaks on 5.x.
 
 ## Measured results
 
