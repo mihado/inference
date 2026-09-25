@@ -2,7 +2,7 @@ name: inference
 
 # The `agentjev` profile: the AgentJev decision model on its own Python runtime
 # (agentjev/), not TEI — it answers TEI's /info, so the router discovers it
-# like any other backend. Sibling to the `laya` profile. See README, "AgentJev".
+# like any other backend. Sibling to the `laya` profile. See agentjev/README.md.
 #
 #   docker compose -f compose.yml -f agentjev/compose.agentjev.yml --profile agentjev up -d --build
 #   make up-agentjev / make down-agentjev

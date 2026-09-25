@@ -4,7 +4,7 @@ name: inference
 # runtime (jina-embed/), not TEI — it answers TEI's /info, so the router
 # discovers it like any other backend, and /v1/embeddings forwards verbatim.
 # Non-commercial weights (CC-BY-NC-4.0): local dev and eval only. Sibling to
-# the `jina` reranker profile. See README, "Jina".
+# the `jina` reranker profile. See jina/README.md.
 #
 #   docker compose -f compose.yml -f jina-embed/compose.jina-embed.yml --profile jina-embed up -d --build
 #   make up-jina-embed / make down-jina-embed
