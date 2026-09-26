@@ -1,10 +1,13 @@
 name: inference
 
-# The `jina-embed` profile: the Jina embeddings v3 model on its own Python
-# runtime (jina-embed/), not TEI — it answers TEI's /info, so the router
+# The `jina-embed` profile: the Jina embeddings v5-omni-small model on its own
+# Python runtime (jina-embed/), not TEI — it answers TEI's /info, so the router
 # discovers it like any other backend, and /v1/embeddings forwards verbatim.
-# Non-commercial weights (CC-BY-NC-4.0): local dev and eval only. Sibling to
-# the `jina` reranker profile. See jina/README.md.
+# Two load-time knobs: JINA_EMBED_TASK picks the task adapter (retrieval is the
+# one behind the request's input_type split) and JINA_EMBED_MODALITY picks the
+# towers (vision keeps text + image; omni adds audio and video). Non-commercial
+# weights (CC-BY-NC-4.0): local dev and eval only. Sibling to the `jina`
+# reranker profile. See jina/README.md.
 #
 #   docker compose -f compose.yml -f jina-embed/compose.jina-embed.yml --profile jina-embed up -d --build
 #   make up-jina-embed / make down-jina-embed
@@ -18,7 +21,9 @@ services:
       - tei.backend=1
     environment:
       HUGGINGFACE_HUB_CACHE: /data
-      JINA_EMBED_MODEL: ${MODEL_JINA_EMBED:-jinaai/jina-embeddings-v3}
+      JINA_EMBED_MODEL: ${MODEL_JINA_EMBED:-jinaai/jina-embeddings-v5-omni-small}
+      JINA_EMBED_TASK: ${JINA_EMBED_TASK:-retrieval}
+      JINA_EMBED_MODALITY: ${JINA_EMBED_MODALITY:-vision}
       JINA_EMBED_DEVICE: ${JINA_EMBED_DEVICE:-}
       JINA_EMBED_MAX_TEXTS: ${JINA_EMBED_MAX_TEXTS:-64}
     volumes:
