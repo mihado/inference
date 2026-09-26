@@ -50,4 +50,5 @@ One answer per question: `choice` with `probabilities`, `abstain`, `valid`, and 
 - Images arrive as base64 `data:` URLs; remote URLs are refused, so the service never fetches a caller-supplied URL.
 - `OMNIJEV_MAX_PIXELS` bounds the image budget (default: 768 vision tokens); `OMNIJEV_MAX_QUESTIONS` (32) bounds a request.
 - Fresh upstream (released 2026-09-25, latency measured on an A800): eval-grade until measured on this box.
+- GPU builds carry a C compiler (`gcc` + `libc6-dev`) because transformers compiles Triton kernels at the first request; a slim image fails every decision with `Failed to find C compiler` until it is present. CPU runs never take that path.
 - `fla-core` (fast Triton kernels for the linear-attention layers) is deliberately not in the image — with it present, transformers dispatches to Triton unconditionally and CPU hosts fail at request time with `0 active drivers`. Add `fla-core==0.5.2` to the Dockerfile for a GPU-only image; `MSO_FLA=0` then disables the upstream wrapper.
