@@ -18,6 +18,8 @@ docker compose -f compose.yml -f laya/compose.laya.yml \
 make up-all                                # every profile, everything
 ```
 
+`make up-laya CONCURRENCY=2` also starts `laya-b` on the other card (port 8044): one instance per card, and the router alternates requests between them.
+
 Clients keep using the router port. The `model` field names the checkpoint:
 
 ```sh

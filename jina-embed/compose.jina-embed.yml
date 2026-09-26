@@ -3,47 +3,65 @@ name: inference
 # The `jina-embed` profile: the Jina embeddings v5-omni-small model on its own
 # Python runtime (jina-embed/), not TEI — it answers TEI's /info, so the router
 # discovers it like any other backend, and /v1/embeddings forwards verbatim.
-# Two load-time knobs: JINA_EMBED_TASK picks the task adapter (retrieval is the
-# one behind the request's input_type split) and JINA_EMBED_MODALITY picks the
+# `jina-embed-b` is the second replica on the other card: `make up-jina-embed
+# CONCURRENCY=2` starts it, and the router alternates between the two. Two
+# load-time knobs: JINA_EMBED_TASK picks the task adapter (retrieval is the one
+# behind the request's input_type split) and JINA_EMBED_MODALITY picks the
 # towers (vision keeps text + image; omni adds audio and video). Non-commercial
 # weights (CC-BY-NC-4.0): local dev and eval only. Sibling to the `jina`
 # reranker profile. See jina/README.md.
 #
-#   docker compose -f compose.yml -f jina-embed/compose.jina-embed.yml --profile jina-embed up -d --build
+#   docker compose -f compose.yml -f jina-embed/compose.jina-embed.yml --profile jina-embed --profile jina-embed-b up -d --build
 #   make up-jina-embed / make down-jina-embed
+
+x-jina-embed: &jina-embed
+  build: ./jina-embed
+  restart: unless-stopped
+  labels:
+    - tei.backend=1
+  environment:
+    HUGGINGFACE_HUB_CACHE: /data
+    JINA_EMBED_MODEL: ${MODEL_JINA_EMBED:-jinaai/jina-embeddings-v5-omni-small}
+    JINA_EMBED_TASK: ${JINA_EMBED_TASK:-retrieval}
+    JINA_EMBED_MODALITY: ${JINA_EMBED_MODALITY:-vision}
+    JINA_EMBED_DEVICE: ${JINA_EMBED_DEVICE:-}
+    JINA_EMBED_MAX_TEXTS: ${JINA_EMBED_MAX_TEXTS:-64}
+  volumes:
+    - ${HF_CACHE:-$HOME/.hf-cache}:/data
+  healthcheck:
+    test:
+      [
+        "CMD-SHELL",
+        "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/health')\" || exit 1",
+      ]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 300s
 
 services:
   jina-embed:
+    <<: *jina-embed
     profiles: ["jina-embed"]
-    build: ./jina-embed
-    restart: unless-stopped
-    labels:
-      - tei.backend=1
-    environment:
-      HUGGINGFACE_HUB_CACHE: /data
-      JINA_EMBED_MODEL: ${MODEL_JINA_EMBED:-jinaai/jina-embeddings-v5-omni-small}
-      JINA_EMBED_TASK: ${JINA_EMBED_TASK:-retrieval}
-      JINA_EMBED_MODALITY: ${JINA_EMBED_MODALITY:-vision}
-      JINA_EMBED_DEVICE: ${JINA_EMBED_DEVICE:-}
-      JINA_EMBED_MAX_TEXTS: ${JINA_EMBED_MAX_TEXTS:-64}
-    volumes:
-      - ${HF_CACHE:-$HOME/.hf-cache}:/data
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/health')\" || exit 1",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 300s
     ports:
-      - "${PORT_JINA_EMBED:-8094}:80"
+      - "${PORT_JINA_EMBED:-8093}:80"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
+  jina-embed-b:
+    <<: *jina-embed
+    profiles: ["jina-embed-b"]
+    ports:
+      - "${PORT_JINA_EMBED_B:-8092}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS_B:-1}"]
               capabilities: [gpu]
