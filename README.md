@@ -35,6 +35,7 @@ Five services start by default: `router`, plus a pair for each of the two models
 | `agentjev` | `agentjev/compose.agentjev.yml` | `agentjev` (own Python runtime) | 8042 | 0 |
 | `jina` | `jina/compose.jina.yml` | `jina` (own Python runtime, non-commercial) | 8095 | 0 |
 | `jina-embed` | `jina-embed/compose.jina-embed.yml` | `jina-embed` (own Python runtime, non-commercial) | 8094 | 0 |
+| `omnijev` | `omnijev/compose.omnijev.yml` | `omnijev` (own Python runtime, Apache-2.0) | 8043 | 0 |
 | `ollama` | `compose.ollama.yml` | `ollama` (own runtime, beside the router, no label) | 11434 | 1 |
 
 | Target | Effect |
@@ -45,6 +46,7 @@ Five services start by default: `router`, plus a pair for each of the two models
 | `make up-agentjev` / `make down-agentjev` | the AgentJev decision service |
 | `make up-jina` / `make down-jina` | the Jina reranker (non-commercial, local dev) |
 | `make up-jina-embed` / `make down-jina-embed` | the Jina embedder (non-commercial, local dev) |
+| `make up-omnijev` / `make down-omnijev` | the OmniJev decision service (Apache-2.0) |
 | `make up-ollama` / `make down-ollama` | the Ollama GGUF runner (reference only) |
 | `make up-all` / `make down-all` | every profile, everything |
 
@@ -121,6 +123,7 @@ Each optional service documents itself beside its compose file:
 - [Laya](laya/README.md) — the decision model (`laya` profile, GPU 0, port 8041). Typed questions with calibrated probabilities; the candidate for the one rerank row that is currently a paid API.
 - [AgentJev](agentjev/README.md) — the decision model on Qwen3-0.6B (`agentjev` profile, GPU 0, port 8042). Boolean, choice, and score answers with full distributions and zero decoded tokens.
 - [Jina](jina/README.md) — the listwise reranker plus the `jina-embed` embedder sibling (`jina` and `jina-embed` profiles, ports 8095 and 8094). Non-commercial weights: local dev and eval only.
+- [OmniJev](omnijev/README.md) — the omni-modal decision model (`omnijev` profile, GPU 0, port 8043). Typed questions about one image with calibrated probabilities and explicit abstention; Apache-2.0, the one decision service that may serve.
 - [Ollama](ollama/README.md) — the GGUF runner beside the router (port 11434, no discovery). Reference only.
 
 ## Measured results

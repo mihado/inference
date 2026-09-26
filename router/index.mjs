@@ -129,7 +129,7 @@ async function resolveBackend(model) {
 }
 
 /** Every public path that carries a model in its JSON body. */
-const POST_PATHS = new Set(["/v1/embeddings", "/rerank", "/v1/rerank", "/v1/decisions", "/api/evaluate"]);
+const POST_PATHS = new Set(["/v1/embeddings", "/rerank", "/v1/rerank", "/v1/decisions", "/v1/systemone", "/api/evaluate"]);
 
 /** Maps a public path to the backend path and body: rerank accepts Cohere's
  * `documents` for TEI's `texts`; everything else forwards untouched. */
