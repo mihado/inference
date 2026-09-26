@@ -8,6 +8,12 @@
 # required by the processor (Qwen3-VL builds its video sub-processor even for
 # image-only use — found by the container smoke).
 #
+# gcc + libc6-dev: on CUDA, transformers compiles Triton kernels at the first
+# request (no prebuilt causal-conv1d or fla in the image), and Triton's launcher
+# needs a C compiler. A CPU build never takes that path — the earlier CPU smoke
+# passed without it — so a slim GPU image fails every decision with "Failed to
+# find C compiler" until the compiler is present.
+#
 # fla-core (flash-linear-attention) is deliberately NOT installed: with it
 # present, transformers' Qwen3.5 layers dispatch to its Triton kernels
 # unconditionally, and on a CPU host that fails at request time with "0 active
@@ -20,7 +26,7 @@
 FROM python:3.12-slim
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
+    && apt-get install -y --no-install-recommends git gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir torch==2.14.0 torchvision --index-url https://download.pytorch.org/whl/cu126
 RUN pip install --no-cache-dir \
