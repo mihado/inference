@@ -22,6 +22,26 @@ GPU_B ?= $(if $(filter 0,$(GPU)),1,$(if $(filter 1,$(GPU)),0,1))
 # --profile for a Python service, adding its -b replica when CONCURRENCY=2.
 py-profiles = --profile $(1)$(if $(filter 2,$(CONCURRENCY)), --profile $(1)-b)
 
+.DEFAULT_GOAL := help
+
+# `make` alone prints this. Every target carries its own `## ` line (including
+# ollama/ollama.mk), so the target list has one source; the flags block is
+# hand-kept because make cannot introspect variables.
+help: ## list every target and flag
+	@printf 'Targets:\n'
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-22s %s\n", $$1, $$2}'
+	@printf '\nFlags (make <target> VAR=value):\n'
+	@printf '  %-22s %s\n' \
+		'GPU=<card>'      'first replica card (default 0); also the ad-hoc slot card' \
+		'GPU_B=<card>'    'second replica card (default: the other card)' \
+		'CONCURRENCY=1|2' 'replicas per Python profile (default 1)' \
+		'ROUTER_PORT=<p>' 'router port for `make models` (default 8100)' \
+		'SVC=<service>'   'service for `make logs`' \
+		'MODEL=<id>'      'model for `make run` (ad-hoc TEI slot)' \
+		'NAME=<name>'     'slot name for `make run` / `make stop`' \
+		'PORT=<p>'        'host port for `make run`'
+	@printf '\nCompose variables are catalogued in .env.example.\n'
+
 up: ## build (router) and start the default stack
 	docker compose up -d --build
 

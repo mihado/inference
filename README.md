@@ -65,6 +65,8 @@ Every profiled service carries the `tei.backend=1` label, so the router finds it
 
 ## Quick start
 
+`make help` (or bare `make`) lists every target and the make flags.
+
 ```sh
 # 1. Create the model cache.
 mkdir -p "$HOME/.hf-cache"
