@@ -18,6 +18,8 @@ make up-omnijev                           # the default stack plus OmniJev (0.8B
 make up-omnijev GPU=1                     # same, on the other card
 ```
 
+`make up-omnijev CONCURRENCY=2` also starts `omnijev-b` on the other card (port 8042): one instance per card, and the router alternates requests between them.
+
 One code base, one API, three sizes:
 
 | `OMNIJEV_SIZE` | Checkpoint | Base |

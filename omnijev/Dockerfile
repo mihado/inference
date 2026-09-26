@@ -38,5 +38,6 @@ RUN git clone https://github.com/tinnel123666888/OmniJev /opt/omnijev \
 ENV PYTHONPATH=/opt/omnijev
 COPY server.py .
 EXPOSE 80
-# One worker: each worker process would load its own copy of the checkpoint.
+# One worker per instance. A second replica is a separate service on the other
+# card (`make up-omnijev CONCURRENCY=2`), each process loading its own copy.
 CMD ["python3", "-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "80", "--workers", "1"]

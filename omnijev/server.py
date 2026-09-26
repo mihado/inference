@@ -62,6 +62,8 @@ MAX_QUESTIONS = int(os.environ.get("OMNIJEV_MAX_QUESTIONS", "32"))
 model: Optional[Any] = None
 # One model copy, one system_one at a time: the upstream wrapper keeps
 # per-request state on the instance, so threads must not share a forward.
+# A second replica is a separate service on the other card (`make up-omnijev
+# CONCURRENCY=2`), with its own copy and its own lock.
 MODEL_LOCK = threading.Lock()
 
 

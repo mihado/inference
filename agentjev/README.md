@@ -17,6 +17,8 @@ make up-agentjev                          # the default stack plus AgentJev
 make up-agentjev GPU=1                    # same, on the other card
 ```
 
+`make up-agentjev CONCURRENCY=2` also starts `agentjev-b` on the other card (port 8046): one instance per card, and the router alternates requests between them.
+
 Clients keep using the router port. The `model` field names the checkpoint:
 
 ```sh

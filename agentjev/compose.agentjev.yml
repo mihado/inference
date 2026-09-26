@@ -2,42 +2,60 @@ name: inference
 
 # The `agentjev` profile: the AgentJev decision model on its own Python runtime
 # (agentjev/), not TEI — it answers TEI's /info, so the router discovers it
-# like any other backend. Sibling to the `laya` profile. See agentjev/README.md.
+# like any other backend. `agentjev-b` is the second replica on the other card:
+# `make up-agentjev CONCURRENCY=2` starts it, and the router alternates between
+# the two. Sibling to the `laya` profile. See agentjev/README.md.
 #
-#   docker compose -f compose.yml -f agentjev/compose.agentjev.yml --profile agentjev up -d --build
+#   docker compose -f compose.yml -f agentjev/compose.agentjev.yml --profile agentjev --profile agentjev-b up -d --build
 #   make up-agentjev / make down-agentjev
+
+x-agentjev: &agentjev
+  build: ./agentjev
+  restart: unless-stopped
+  labels:
+    - tei.backend=1
+  environment:
+    HUGGINGFACE_HUB_CACHE: /data
+    AGENTJEV_REPO: ${AGENTJEV_REPO:-aimeigaoshou/agent-jev}
+    AGENTJEV_BASE: ${AGENTJEV_BASE:-Qwen/Qwen3-0.6B}
+    AGENTJEV_DEVICE: ${AGENTJEV_DEVICE:-}
+    AGENTJEV_MAX_TEXTS: ${AGENTJEV_MAX_TEXTS:-32}
+  volumes:
+    - ${HF_CACHE:-$HOME/.hf-cache}:/data
+  healthcheck:
+    test:
+      [
+        "CMD-SHELL",
+        "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/health')\" || exit 1",
+      ]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 300s
 
 services:
   agentjev:
+    <<: *agentjev
     profiles: ["agentjev"]
-    build: ./agentjev
-    restart: unless-stopped
-    labels:
-      - tei.backend=1
-    environment:
-      HUGGINGFACE_HUB_CACHE: /data
-      AGENTJEV_REPO: ${AGENTJEV_REPO:-aimeigaoshou/agent-jev}
-      AGENTJEV_BASE: ${AGENTJEV_BASE:-Qwen/Qwen3-0.6B}
-      AGENTJEV_DEVICE: ${AGENTJEV_DEVICE:-}
-      AGENTJEV_MAX_TEXTS: ${AGENTJEV_MAX_TEXTS:-32}
-    volumes:
-      - ${HF_CACHE:-$HOME/.hf-cache}:/data
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/health')\" || exit 1",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 300s
     ports:
-      - "${PORT_AGENTJEV:-8042}:80"
+      - "${PORT_AGENTJEV:-8045}:80"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
+  agentjev-b:
+    <<: *agentjev
+    profiles: ["agentjev-b"]
+    ports:
+      - "${PORT_AGENTJEV_B:-8046}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS_B:-1}"]
               capabilities: [gpu]

@@ -2,45 +2,63 @@ name: inference
 
 # The `omnijev` profile: the OmniJev decision model on its own Python runtime
 # (omnijev/), not TEI — a custom decision head, so TEI and vLLM cannot host it.
+# `omnijev-b` is the second replica on the other card: `make up-omnijev
+# CONCURRENCY=2` starts it, and the router alternates between the two.
 # Apache-2.0 code and weights; unlike the Jina profiles this one may serve.
 # Defaults to the 0.8B size; OMNIJEV_SIZE=2|4 or an explicit OMNIJEV_CKPT /
 # OMNIJEV_BASE pair overrides. See omnijev/README.md.
 #
-#   docker compose -f compose.yml -f omnijev/compose.omnijev.yml --profile omnijev up -d --build
+#   docker compose -f compose.yml -f omnijev/compose.omnijev.yml --profile omnijev --profile omnijev-b up -d --build
 #   make up-omnijev / make down-omnijev
+
+x-omnijev: &omnijev
+  build: ./omnijev
+  restart: unless-stopped
+  labels:
+    - tei.backend=1
+  environment:
+    HUGGINGFACE_HUB_CACHE: /data
+    OMNIJEV_SIZE: ${OMNIJEV_SIZE:-0.8}
+    OMNIJEV_CKPT: ${OMNIJEV_CKPT:-}
+    OMNIJEV_BASE: ${OMNIJEV_BASE:-}
+    OMNIJEV_MAX_PIXELS: ${OMNIJEV_MAX_PIXELS:-}
+    OMNIJEV_MAX_QUESTIONS: ${OMNIJEV_MAX_QUESTIONS:-32}
+  volumes:
+    - ${HF_CACHE:-$HOME/.hf-cache}:/data
+  healthcheck:
+    test:
+      [
+        "CMD-SHELL",
+        "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/health')\" || exit 1",
+      ]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 600s
 
 services:
   omnijev:
+    <<: *omnijev
     profiles: ["omnijev"]
-    build: ./omnijev
-    restart: unless-stopped
-    labels:
-      - tei.backend=1
-    environment:
-      HUGGINGFACE_HUB_CACHE: /data
-      OMNIJEV_SIZE: ${OMNIJEV_SIZE:-0.8}
-      OMNIJEV_CKPT: ${OMNIJEV_CKPT:-}
-      OMNIJEV_BASE: ${OMNIJEV_BASE:-}
-      OMNIJEV_MAX_PIXELS: ${OMNIJEV_MAX_PIXELS:-}
-      OMNIJEV_MAX_QUESTIONS: ${OMNIJEV_MAX_QUESTIONS:-32}
-    volumes:
-      - ${HF_CACHE:-$HOME/.hf-cache}:/data
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/health')\" || exit 1",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 600s
     ports:
-      - "${PORT_OMNIJEV:-8043}:80"
+      - "${PORT_OMNIJEV:-8041}:80"
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
+  omnijev-b:
+    <<: *omnijev
+    profiles: ["omnijev-b"]
+    ports:
+      - "${PORT_OMNIJEV_B:-8042}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS_B:-1}"]
               capabilities: [gpu]
