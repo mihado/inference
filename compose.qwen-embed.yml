@@ -15,6 +15,8 @@ x-qwen: &qwen
     - tei.backend=1
   environment:
     HUGGINGFACE_HUB_CACHE: /data
+    # Authenticates Hub downloads when set; public models work without it.
+    HF_TOKEN: ${HF_TOKEN:-}
   volumes:
     - ${HF_CACHE:-$HOME/.hf-cache}:/data
   healthcheck:

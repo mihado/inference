@@ -53,6 +53,8 @@ The 1.9.x images are CUDA 12.9. They must have driver 575 or later. If TEI write
 
 Each server uses the same host directory at `/data`. The default is `$HOME/.hf-cache`. The Hugging Face cache is safe for more than one process, because it uses file locks and atomic renames. So the share is safe, also during the first download. You can download the models one time, then use a read-only mount.
 
+Compose passes `HF_TOKEN` from the shell or the ignored `.env` to every server that pulls from the Hub. Public models download without it, but an anonymous IP is rate-limited and slower; gated or private models need it. Never commit the value or put it in a compose file.
+
 ## Diagnostics
 
 | Symptom | Command | Cause |

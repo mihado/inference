@@ -8,6 +8,8 @@ x-tei: &tei
     - tei.backend=1
   environment:
     HUGGINGFACE_HUB_CACHE: /data
+    # Authenticates Hub downloads when set; public models work without it.
+    HF_TOKEN: ${HF_TOKEN:-}
   volumes:
     - ${HF_CACHE:-$HOME/.hf-cache}:/data
   healthcheck:
@@ -41,6 +43,8 @@ x-voyage: &voyage
     ipc: host
     environment:
       HUGGINGFACE_HUB_CACHE: /data
+      # Authenticates Hub downloads when set; public models work without it.
+      HF_TOKEN: ${HF_TOKEN:-}
     volumes:
       - ${HF_CACHE:-$HOME/.hf-cache}:/data
     # The vLLM image has python3 but not always curl. Nothing waits on this: the

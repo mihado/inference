@@ -21,6 +21,8 @@ x-jina-embed: &jina-embed
     - tei.backend=1
   environment:
     HUGGINGFACE_HUB_CACHE: /data
+    # Authenticates Hub downloads when set; public models work without it.
+    HF_TOKEN: ${HF_TOKEN:-}
     JINA_EMBED_MODEL: ${MODEL_JINA_EMBED:-jinaai/jina-embeddings-v5-omni-small}
     JINA_EMBED_TASK: ${JINA_EMBED_TASK:-retrieval}
     JINA_EMBED_MODALITY: ${JINA_EMBED_MODALITY:-vision}
