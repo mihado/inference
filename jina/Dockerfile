@@ -5,7 +5,13 @@
 # transformers 5.17. The custom modeling code loads from the hub checkpoint
 # itself (trust_remote_code); if a future checkpoint needs newer transformers
 # than the pin, the import fails loudly at container start, not silently.
+#
+# gcc + libc6-dev: the Triton kernel that compiles at the first CUDA request
+# needs a C compiler (docs/operations.md, "Gotchas").
 FROM python:3.12-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 RUN pip install --no-cache-dir torch==2.14.0 --index-url https://download.pytorch.org/whl/cu126
 RUN pip install --no-cache-dir \
