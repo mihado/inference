@@ -78,7 +78,7 @@ Compose passes `HF_TOKEN` from the shell or the ignored `.env` to every server t
   - `voyage-4-nano` serves 2048 dimensions.
   - The client takes the first 1024 values, then normalizes them.
   - So the local index can use the vectors of the paid API.
-- A Python GPU service fails every request with `Failed to find C compiler` when its image has no C compiler. On CUDA, a Triton kernel compiles at the first request, and Triton's launcher shells out to a compiler. A CPU host never takes that path, so a CPU smoke test passes without it. The Python profiles (`laya`, `agentjev`, `jina`, `jina-embed`, `omnijev`) install `gcc` and `libc6-dev` for it.
+- A Python GPU service fails every request with `Failed to find C compiler` when its image has no C compiler. On CUDA, a Triton kernel compiles at the first request, and Triton's launcher shells out to a compiler. A CPU host never takes that path, so a CPU smoke test passes without it. The Python profiles (`laya`, `agentjev`, `jina`, `jina-embed`, `omnijev`, `julia`) install `gcc` and `libc6-dev` for it.
 
 ## Model types
 

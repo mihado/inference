@@ -5,7 +5,7 @@ ROUTER_PORT ?= 8100
 include ollama/ollama.mk
 
 # Every compose file; only the "all" targets name them.
-COMPOSE_ALL := docker compose -f compose.yml -f compose.rerankers.yml -f laya/compose.laya.yml -f agentjev/compose.agentjev.yml -f ollama/compose.ollama.yml -f jina/compose.jina.yml -f jina-embed/compose.jina-embed.yml -f omnijev/compose.omnijev.yml -f compose.qwen-embed.yml
+COMPOSE_ALL := docker compose -f compose.yml -f compose.rerankers.yml -f laya/compose.laya.yml -f agentjev/compose.agentjev.yml -f ollama/compose.ollama.yml -f jina/compose.jina.yml -f jina-embed/compose.jina-embed.yml -f omnijev/compose.omnijev.yml -f julia/compose.julia.yml -f compose.qwen-embed.yml
 
 # Concurrency is instances per Python profile, not workers: CONCURRENCY=2 adds
 # the profile's second replica (-b) on the other card, with its own port; the
@@ -98,6 +98,12 @@ up-omnijev: ## start the default stack plus the OmniJev service (CONCURRENCY=2: 
 
 down-omnijev: ## stop and remove the OmniJev service, both replicas
 	docker compose -f omnijev/compose.omnijev.yml --profile omnijev --profile omnijev-b down
+
+up-julia: ## start the default stack plus the Julia-1 service (CONCURRENCY=2: second replica, Apache-2.0)
+	GPU_EXTRAS=$(GPU) GPU_EXTRAS_B=$(GPU_B) docker compose -f compose.yml -f julia/compose.julia.yml $(call py-profiles,julia) up -d --build
+
+down-julia: ## stop and remove the Julia-1 service, both replicas
+	docker compose -f julia/compose.julia.yml --profile julia --profile julia-b down
 
 status: ## live model of each server
 	scripts/model.sh status

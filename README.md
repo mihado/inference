@@ -36,6 +36,7 @@ Five services start by default: `router`, plus a pair for each of the two models
 | `jina` | `jina/compose.jina.yml` | `jina` (own Python runtime, non-commercial) | 8095 | 0 |
 | `jina-embed` | `jina-embed/compose.jina-embed.yml` | `jina-embed` (own Python runtime, non-commercial) | 8093 | 0 |
 | `omnijev` | `omnijev/compose.omnijev.yml` | `omnijev` (own Python runtime, Apache-2.0) | 8041 | 0 |
+| `julia` | `julia/compose.julia.yml` | `julia` (own Python runtime, Apache-2.0) | 8047 | 0 |
 | `ollama` | `compose.ollama.yml` | `ollama` (own runtime, beside the router, no label) | 11434 | 1 |
 
 | Target | Effect |
@@ -47,6 +48,7 @@ Five services start by default: `router`, plus a pair for each of the two models
 | `make up-jina` / `make down-jina` | the Jina reranker (non-commercial, local dev) |
 | `make up-jina-embed` / `make down-jina-embed` | the Jina embedder (non-commercial, local dev) |
 | `make up-omnijev` / `make down-omnijev` | the OmniJev decision service (Apache-2.0) |
+| `make up-julia` / `make down-julia` | the Julia-1 decision service (Apache-2.0) |
 | `make up-ollama` / `make down-ollama` | the Ollama GGUF runner (reference only) |
 | `make up-all` / `make down-all` | every profile, everything |
 
@@ -59,7 +61,7 @@ docker compose -f compose.yml -f compose.rerankers.yml \
   --profile rerankers up -d --build
 ```
 
-Every Python profile takes a second replica on the other card, with an adjacent port pair: `omnijev` 8041/8042, `laya` 8043/8044, `agentjev` 8045/8046, `jina-embed` 8093/8092, `jina` 8095/8094. `make up-omnijev CONCURRENCY=2` enables the `-b` service (default `CONCURRENCY=1` keeps one instance), and the router alternates requests between each pair — the same `-b` shape the default stack uses.
+Every Python profile takes a second replica on the other card, with an adjacent port pair: `omnijev` 8041/8042, `laya` 8043/8044, `agentjev` 8045/8046, `julia` 8047/8048, `jina-embed` 8093/8092, `jina` 8095/8094. `make up-omnijev CONCURRENCY=2` enables the `-b` service (default `CONCURRENCY=1` keeps one instance), and the router alternates requests between each pair — the same `-b` shape the default stack uses.
 
 Every profiled service carries the `tei.backend=1` label, so the router finds it with no config change — `make models` is the live union. Use the rerankers profile to compare rerankers with one another and with the paid APIs.
 
@@ -128,6 +130,7 @@ Each optional service documents itself beside its compose file:
 - [AgentJev](agentjev/README.md) — the decision model on Qwen3-0.6B (`agentjev` profile, GPU 0, port 8045). Boolean, choice, and score answers with full distributions and zero decoded tokens.
 - [Jina](jina/README.md) — the listwise reranker plus the `jina-embed` embedder sibling (`jina` and `jina-embed` profiles, ports 8095 and 8093). Non-commercial weights: local dev and eval only.
 - [OmniJev](omnijev/README.md) — the omni-modal decision model (`omnijev` profile, GPU 0, port 8041). Typed questions about one image with calibrated probabilities and explicit abstention; Apache-2.0, the one decision service that may serve.
+- [Julia](julia/README.md) — the decision model (`julia` profile, GPU 0, port 8047). The named-question interface on a 144.3M mmBERT-small encoder — text-only, CPU-capable, Apache-2.0.
 - [Ollama](ollama/README.md) — the GGUF runner beside the router (port 11434, no discovery). Reference only.
 
 ## Measured results
