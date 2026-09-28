@@ -1,0 +1,202 @@
+[
+  {
+    "id": "taproom-sales",
+    "query": "Can a brewer sell beer directly at the taproom?",
+    "relevant_first": true,
+    "relevant": "A brewer may sell beer on the licensed premises.",
+    "distractors": [
+      "The label must carry a health warning.",
+      "Tax returns are due quarterly."
+    ]
+  },
+  {
+    "id": "shipment-refusal",
+    "query": "When may a shipment of alcohol be refused?",
+    "relevant_first": false,
+    "relevant": "The department shall refuse any shipment that lacks a certificate of compliance.",
+    "distractors": [
+      "This chapter governs the transportation of alcoholic beverages.",
+      "License renewal fees are due with the application."
+    ]
+  },
+  {
+    "id": "distributor-renewal",
+    "query": "When must a distributor renew its license?",
+    "relevant_first": true,
+    "relevant": "Distributor licenses renew annually by June 30.",
+    "distractors": [
+      "Brewer licenses run for three years.",
+      "Late filings accrue monthly penalties."
+    ]
+  },
+  {
+    "id": "sunday-morning",
+    "query": "May a retailer sell alcohol on Sunday morning?",
+    "relevant_first": false,
+    "relevant": "Retail sales are prohibited before noon on Sundays.",
+    "distractors": [
+      "Retail sales are permitted after noon on Sundays.",
+      "Sunday hours also bind on-premises consumption."
+    ]
+  },
+  {
+    "id": "serve-age",
+    "query": "What is the minimum age to serve alcohol?",
+    "relevant_first": true,
+    "relevant": "Servers must be at least 18 years old.",
+    "distractors": [
+      "Patrons must be 21 to purchase.",
+      "Managers must be 21."
+    ]
+  },
+  {
+    "id": "happy-hour",
+    "query": "Are happy hour discounts allowed?",
+    "relevant_first": false,
+    "relevant": "Discounts based on time of day are prohibited.",
+    "distractors": [
+      "Coupons from manufacturers are permitted.",
+      "Volume discounts are allowed for distributors."
+    ]
+  },
+  {
+    "id": "cocktail-delivery",
+    "query": "Can a restaurant deliver cocktails?",
+    "relevant_first": true,
+    "relevant": "Deliveries must be in sealed containers with food orders.",
+    "distractors": [
+      "Third-party delivery of sealed beer is allowed.",
+      "Drive-through liquor sales are banned."
+    ]
+  },
+  {
+    "id": "records-retention",
+    "query": "How long must sales records be kept?",
+    "relevant_first": false,
+    "relevant": "Records must be retained for three years.",
+    "distractors": [
+      "Tax returns are due quarterly.",
+      "Records must be available on request."
+    ]
+  },
+  {
+    "id": "winery-tastings",
+    "query": "May a winery offer free tastings?",
+    "relevant_first": true,
+    "relevant": "Wineries may serve up to three one-ounce samples per visitor.",
+    "distractors": [
+      "Breweries may not serve spirits.",
+      "Tasting rooms must close by 10pm."
+    ]
+  },
+  {
+    "id": "interstate-shipment",
+    "query": "Can a consumer receive wine shipped from another state?",
+    "relevant_first": false,
+    "relevant": "Direct shipment requires both states to permit it and a state shipper's license.",
+    "distractors": [
+      "In-state delivery needs no license.",
+      "Common carriers must verify age at delivery."
+    ]
+  },
+  {
+    "id": "minor-penalty",
+    "query": "What is the penalty for selling to a minor?",
+    "relevant_first": true,
+    "relevant": "A first offense carries a $500 fine and possible suspension.",
+    "distractors": [
+      "A second offense doubles the fine.",
+      "Knowing violations bring criminal charges."
+    ]
+  },
+  {
+    "id": "school-ads",
+    "query": "May alcohol ads appear near schools?",
+    "relevant_first": false,
+    "relevant": "Advertising within 500 feet of a school is prohibited.",
+    "distractors": [
+      "Billboard ads require disclaimers.",
+      "Social media ads must age-gate."
+    ]
+  },
+  {
+    "id": "keg-registration",
+    "query": "Must keg buyers register?",
+    "relevant_first": true,
+    "relevant": "Purchasers of kegs over four gallons must show ID and sign a receipt.",
+    "distractors": [
+      "Keg deposits are refundable.",
+      "Taps may be rented with the keg."
+    ]
+  },
+  {
+    "id": "byob",
+    "query": "Can diners bring their own wine?",
+    "relevant_first": false,
+    "relevant": "Restaurants may allow BYOB with a corkage permit.",
+    "distractors": [
+      "Corkage fees are unregulated.",
+      "Open container laws apply to vehicles."
+    ]
+  },
+  {
+    "id": "growlers",
+    "query": "May a bar fill a customer's growler?",
+    "relevant_first": true,
+    "relevant": "Growlers must be filled from approved taps and sealed.",
+    "distractors": [
+      "Growler fills count as off-premises sales.",
+      "Customers may bring any container."
+    ]
+  },
+  {
+    "id": "farmers-markets",
+    "query": "Can breweries sell at farmers markets?",
+    "relevant_first": false,
+    "relevant": "Sales at farmers markets need a temporary permit and local approval.",
+    "distractors": [
+      "Grocery stores need no extra permit.",
+      "Market stalls must display the license."
+    ]
+  },
+  {
+    "id": "charity-auction",
+    "query": "Can a charity auction donated wine?",
+    "relevant_first": true,
+    "relevant": "Nonprofits may auction alcohol with a one-day charitable permit.",
+    "distractors": [
+      "Alcohol donations are tax-deductible.",
+      "Volunteers must be 21 to serve."
+    ]
+  },
+  {
+    "id": "tied-house",
+    "query": "May a distributor own a bar?",
+    "relevant_first": false,
+    "relevant": "A distributor may not hold a retail interest, with narrow exceptions.",
+    "distractors": [
+      "Breweries may own taprooms.",
+      "Suppliers may advertise in bars."
+    ]
+  },
+  {
+    "id": "manager-liability",
+    "query": "Is a manager liable for an overserved patron?",
+    "relevant_first": true,
+    "relevant": "A permittee is liable for injuries caused by an overserved patron.",
+    "distractors": [
+      "Bartenders must complete training.",
+      "Fines go to the permit holder."
+    ]
+  },
+  {
+    "id": "label-approval",
+    "query": "Must labels be approved before sale?",
+    "relevant_first": false,
+    "relevant": "Every label needs a certificate of label approval before sale.",
+    "distractors": [
+      "Vintage dates require verification.",
+      "Health warnings follow federal size rules."
+    ]
+  }
+]
