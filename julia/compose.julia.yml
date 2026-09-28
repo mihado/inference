@@ -43,7 +43,7 @@ services:
     <<: *julia
     profiles: ["julia"]
     ports:
-      - "${PORT_JULIA:-8047}:80"
+      - "127.0.0.1:${PORT_JULIA:-8047}:80"
     deploy:
       resources:
         reservations:
@@ -56,7 +56,7 @@ services:
     <<: *julia
     profiles: ["julia-b"]
     ports:
-      - "${PORT_JULIA_B:-8048}:80"
+      - "127.0.0.1:${PORT_JULIA_B:-8048}:80"
     deploy:
       resources:
         reservations:

@@ -41,7 +41,7 @@ services:
     <<: *laya
     profiles: ["laya"]
     ports:
-      - "${PORT_LAYA:-8043}:80"
+      - "127.0.0.1:${PORT_LAYA:-8043}:80"
     deploy:
       resources:
         reservations:
@@ -54,7 +54,7 @@ services:
     <<: *laya
     profiles: ["laya-b"]
     ports:
-      - "${PORT_LAYA_B:-8044}:80"
+      - "127.0.0.1:${PORT_LAYA_B:-8044}:80"
     deploy:
       resources:
         reservations:

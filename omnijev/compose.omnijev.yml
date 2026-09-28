@@ -43,7 +43,7 @@ services:
     <<: *omnijev
     profiles: ["omnijev"]
     ports:
-      - "${PORT_OMNIJEV:-8041}:80"
+      - "127.0.0.1:${PORT_OMNIJEV:-8041}:80"
     deploy:
       resources:
         reservations:
@@ -56,7 +56,7 @@ services:
     <<: *omnijev
     profiles: ["omnijev-b"]
     ports:
-      - "${PORT_OMNIJEV_B:-8042}:80"
+      - "127.0.0.1:${PORT_OMNIJEV_B:-8042}:80"
     deploy:
       resources:
         reservations:

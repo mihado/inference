@@ -40,7 +40,7 @@ services:
     <<: *qwen
     profiles: ["qwen-embed"]
     ports:
-      - "${PORT_QWEN_EMBED:-8003}:80"
+      - "127.0.0.1:${PORT_QWEN_EMBED:-8003}:80"
     deploy:
       resources:
         reservations:
@@ -53,7 +53,7 @@ services:
     <<: *qwen
     profiles: ["qwen-embed"]
     ports:
-      - "${PORT_QWEN_EMBED_B:-8004}:80"
+      - "127.0.0.1:${PORT_QWEN_EMBED_B:-8004}:80"
     deploy:
       resources:
         reservations:

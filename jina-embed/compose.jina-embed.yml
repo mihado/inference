@@ -46,7 +46,7 @@ services:
     <<: *jina-embed
     profiles: ["jina-embed"]
     ports:
-      - "${PORT_JINA_EMBED:-8093}:80"
+      - "127.0.0.1:${PORT_JINA_EMBED:-8093}:80"
     deploy:
       resources:
         reservations:
@@ -59,7 +59,7 @@ services:
     <<: *jina-embed
     profiles: ["jina-embed-b"]
     ports:
-      - "${PORT_JINA_EMBED_B:-8092}:80"
+      - "127.0.0.1:${PORT_JINA_EMBED_B:-8092}:80"
     deploy:
       resources:
         reservations:
