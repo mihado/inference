@@ -38,6 +38,9 @@ const LOCAL_KNOWN = [...SHARED.RERANK_KNOWN, SHARED.LAYA_ID];
 const PAID_KNOWN = (process.env.EVAL_PAID ?? "rerank-3-lite,jev-latest").split(",").map((id) => id.trim()).filter(Boolean);
 
 const golden = JSON.parse(readFileSync(join(HERE, "golden.json"), "utf8"));
+// CI tier: the first N cases, a stable prefix of the file.
+const LIMIT = Number(process.env.EVAL_LIMIT ?? 0);
+const cases = LIMIT > 0 ? golden.slice(0, LIMIT) : golden;
 
 async function get(path) {
   const response = await fetch(`${ROUTER}${path}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -100,7 +103,7 @@ async function score(id, send) {
   let mrr = 0;
   let ms = 0;
   let ran = 0;
-  for (const item of golden) {
+  for (const item of cases) {
     const texts = item.relevant_first ? [item.relevant, ...item.distractors] : [...item.distractors, item.relevant];
     const relPos = item.relevant_first ? 0 : texts.length - 1;
     let result;

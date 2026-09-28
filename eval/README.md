@@ -2,13 +2,15 @@
 
 Fast reranker regression, not a serving decision.
 
-- `golden.json` — 20 hand-built cases in the codex domain (alcohol beverage
-  regulation). Each case has one relevant document and distractors that share
-  vocabulary, so a lexical shortcut fails and only relevance ordering passes.
-  The full 500-Q held-out set in `docs/evaluation.md` stays authoritative for
-  serving; this file catches breakage, model swaps, and shape drift in seconds.
+- `golden.json` — 105 hand-built cases in the codex domain (alcohol beverage
+  regulation), spanning licensing, hours, records, shipping, advertising, tax,
+  and enforcement themes. Each case has one relevant document and five
+  distractors that share vocabulary, so a lexical shortcut fails and only
+  relevance ordering passes. The full 500-Q held-out set in
+  `docs/evaluation.md` stays authoritative for serving; this file catches
+  breakage, model swaps, and shape drift in a minute.
 - `run.mjs` — the bake-off runner (`make eval-golden`): every advertised
-  reranker runs the same 20 cases through the router, and the paid models
+  reranker runs the same cases through the router, and the paid models
   (`rerank-3-lite`, `jev-latest`, `EVAL_PAID` to change) through the product
   gateway's v1-compat `/v1/rerank`. Quality deltas never fail the run; request
   errors do.
@@ -19,6 +21,7 @@ Fast reranker regression, not a serving decision.
 make eval-golden                     # locals via the router, paid via the gateway
 EVAL_VERBOSE=1 make eval-golden      # list every miss
 EVAL_PAID=rerank-3-lite,jev-latest make eval-golden
+EVAL_LIMIT=30 make eval-golden      # CI tier: first 30 cases, ~20s
 ```
 
 The paid adapter needs `LEXLAB_OPENAPI_KEY` in the environment; the gateway
@@ -29,9 +32,10 @@ Cloudflare answers that host with a bot-403 unless the request carries a
 ## Reading the numbers
 
 `recall@1` is share of cases whose relevant document the reranker puts first;
-`MRR` rewards a near-miss. Both are on 20 cases, so one case is worth 0.05
-recall — read the miss list (`EVAL_VERBOSE`) before believing a gap, and
-treat the 500-Q table in `docs/evaluation.md` as the decision.
+`MRR` rewards a near-miss. Both are on 105 cases, so one case is worth ~0.0095
+recall — read the miss list (`EVAL_VERBOSE`) before believing a gap, and treat
+the 500-Q table in `docs/evaluation.md` as the decision. This file is
+hand-written and synthetic: it is a regression gate, not a corpus sample.
 
 Placement defeats position bias: `relevant_first: true` puts the relevant
 document at index 0, false puts it last. Listwise rerankers (jina) read
