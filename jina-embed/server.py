@@ -139,6 +139,7 @@ def info():
         "model_dtype": "bfloat16",
         "device": str(model.device),
         "max_client_batch_size": MAX_TEXTS,
+        "paths": ["/v1/embeddings"],
     }
 
 

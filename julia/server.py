@@ -130,6 +130,7 @@ def info():
         "model_id": SERVED_ID,
         "device": _device(),
         "max_client_batch_size": MAX_QUESTIONS,
+        "paths": ["/v1/predict"],
     }
 
 

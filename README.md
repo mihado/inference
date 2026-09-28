@@ -94,10 +94,21 @@ One port must be open to the network: the router on 8100. Clients use the router
 `router/` is a proxy with no dependencies. It does three tasks:
 
 - It reports the model list of all servers.
-- It sends each `/v1/embeddings` call to the server with the requested model.
-- It sends each `/rerank` call to the server with the requested model.
+- It sends each model-carrying POST to the server with the requested model.
+- It normalizes `/rerank`'s Cohere `documents` to TEI's `texts`.
 
 The router reads the model of each server. It reads the TEI `/info` data, or the OpenAI `/v1/models` list of a vLLM server. It repeats the read every 30 seconds. So the router finds a new or changed server with no restart.
+
+Backends advertise the POST paths they serve in `/info` (`paths`), and the router unions those with its static set — a new surface routes with no router change. An advertised path routes only to the backends that advertised it, so a rolling upgrade never sends it to an un-upgraded replica. A backend that omits `paths` (TEI, vLLM) routes the static set only; malformed entries are ignored, and unlisted paths 404:
+
+| Service | Advertised paths |
+| --- | --- |
+| `laya` | `/rerank`, `/v1/decisions` |
+| `agentjev` | `/rerank`, `/api/evaluate` |
+| `jina` | `/rerank` |
+| `jina-embed` | `/v1/embeddings` |
+| `omnijev` | `/v1/systemone` |
+| `julia` | `/v1/predict` |
 
 ```sh
 curl -s localhost:8100/v1/models

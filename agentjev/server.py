@@ -130,6 +130,7 @@ def info():
         "model_dtype": "bfloat16",
         "device": engine.device,
         "max_client_batch_size": MAX_TEXTS,
+        "paths": ["/rerank", "/api/evaluate"],
     }
 
 

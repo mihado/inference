@@ -124,6 +124,7 @@ def info():
         "model_dtype": str(agent.dtype).replace("torch.", ""),
         "device": str(agent.device),
         "max_client_batch_size": MAX_TEXTS,
+        "paths": ["/rerank", "/v1/decisions"],
     }
 
 

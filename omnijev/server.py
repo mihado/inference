@@ -142,6 +142,7 @@ def info():
         "model_dtype": str(model.dtype).replace("torch.", ""),
         "device": str(model.dev),
         "max_client_batch_size": MAX_QUESTIONS,
+        "paths": ["/v1/systemone"],
     }
 
 

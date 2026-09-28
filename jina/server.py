@@ -96,6 +96,7 @@ def info():
         "model_dtype": "bfloat16",
         "device": str(next(model.parameters()).device),
         "max_client_batch_size": MAX_TEXTS,
+        "paths": ["/rerank"],
     }
 
 

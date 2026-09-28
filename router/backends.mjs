@@ -50,6 +50,46 @@ export function addBackend(found, id, base) {
   else if (!urls.includes(base)) urls.push(base);
 }
 
+/** POST paths a backend advertises in /info (`paths`), or [] for anything
+ * malformed. Entries must be absolute paths; anything else is ignored, never
+ * an error — a misbehaving backend degrades to unroutable paths, not a broken
+ * catalogue. */
+export function infoPaths(info) {
+  const list = Array.isArray(info?.paths) ? info.paths : [];
+  const seen = new Set();
+  for (const entry of list) {
+    if (typeof entry === "string" && entry.startsWith("/") && !seen.has(entry)) seen.add(entry);
+  }
+  return [...seen];
+}
+
+/** Records the POST paths one backend advertised, replacing its previous
+ * set. Backends that advertise nothing leave no entry and route the static
+ * set, as before. */
+export function setBackendPaths(found, base, paths) {
+  if (paths.length === 0) found.delete(base);
+  else found.set(base, new Set(paths));
+}
+
+/** Whether any backend serving a model advertises `path`. */
+export function modelAdvertises(urls, pathsByBase, path) {
+  return Array.isArray(urls) && urls.some((base) => pathsByBase.get(base)?.has(path) === true);
+}
+
+/** The backends of a model eligible for `path`: an advertised path routes
+ * only to backends that advertised it (so a rolling upgrade never sends it
+ * to an un-upgraded replica); static paths, and backends that advertise
+ * nothing, route everywhere, as before. Undefined when nothing is eligible. */
+export function eligibleBackends(urls, pathsByBase, path, isStatic) {
+  if (!Array.isArray(urls) || urls.length === 0) return undefined;
+  if (isStatic) return urls;
+  const eligible = urls.filter((base) => {
+    const advertised = pathsByBase.get(base);
+    return advertised === undefined || advertised.has(path);
+  });
+  return eligible.length > 0 ? eligible : undefined;
+}
+
 /** Round-robin over a model's backends. Pure: the caller keeps the turn.
  *
  * Round-robin is enough here because every request is seconds long and evenly
