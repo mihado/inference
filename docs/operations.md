@@ -73,6 +73,7 @@ Compose passes `HF_TOKEN` from the shell or the ignored `.env` to every server t
   - The limit `--max-batch-tokens` is 8192. So the queue can overflow.
   - Lower `--max-client-batch-size`, or raise `--max-batch-tokens`.
 - `--max-batch-tokens` must be the largest value that the model accepts. TEI cannot calculate this value alone.
+- `--max-client-batch-size` bounds one *request*; a client that needs more sends several. The router should advertise the bound per model so clients know it — see [client-batch-limits.md](client-batch-limits.md).
 - `--served-model-name` sets the model name for the OpenAI surface. If you do not set it, the name is the Hugging Face id.
 - A Matryoshka model can serve more dimensions than you index.
   - `voyage-4-nano` serves 2048 dimensions.
