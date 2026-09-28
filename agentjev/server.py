@@ -25,14 +25,11 @@
 # load exits the process, so the container shows an exit code the way the TEI
 # and vLLM services do.
 import os
-import threading
-import traceback
-from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional
 
 import torch
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+
+import stack_service
 
 REPO = os.environ.get("AGENTJEV_REPO", "aimeigaoshou/agent-jev")
 BASE = os.environ.get("AGENTJEV_BASE", "Qwen/Qwen3-0.6B")
@@ -50,13 +47,6 @@ RERANK_CRITERIA = {
 RERANK_STATE = "Query: %s\n\nDocument: %s"
 
 engine: Optional[Any] = None
-
-
-def error(status: int, message: str, code: str) -> JSONResponse:
-    return JSONResponse(
-        status_code=status,
-        content={"error": {"message": message, "type": code, "code": code}},
-    )
 
 
 def _bootstrap() -> tuple:
@@ -95,34 +85,13 @@ def _load() -> None:
     )
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    def run() -> None:
-        try:
-            _load()
-        except BaseException:
-            traceback.print_exc()
-            # A model that will not load is a stopped container, like TEI and vLLM:
-            # `docker ps` shows the restart, `docker logs` shows why.
-            os._exit(1)
-
-    threading.Thread(target=run, daemon=True, name="agentjev-load").start()
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
-
-
-@app.get("/health")
-def health() -> Dict[str, str]:
-    """Liveness only. Readiness is /info: it answers once the model is loaded."""
-    return {"status": "ok"}
+app = stack_service.make_app(_load, "agentjev-load")
 
 
 @app.get("/info")
 def info():
     if engine is None:
-        return error(503, "the model is still loading", "model_loading")
+        return stack_service.error(503, "the model is still loading", "model_loading")
     # TEI's /info shape. The router reads model_id from it and registers this
     # container under that one model, on the next 30s scan.
     return {
@@ -137,30 +106,16 @@ def info():
 @app.post("/rerank")
 def rerank(body: Dict[str, Any]):
     if engine is None:
-        return error(503, "the model is still loading", "model_loading")
-    model = body.get("model") or body.get("model_id")
-    if model is not None and model != SERVED_ID:
-        return error(404, "No backend serves model '%s'." % model, "model_not_found")
-    query = body.get("query")
-    texts = body.get("texts")
-    if texts is None:
-        texts = body.get("documents")
-    if not isinstance(query, str) or not isinstance(texts, list):
-        return error(
-            400,
-            "'query' (string) and 'texts' (array of strings) are required.",
-            "invalid_request_error",
-        )
-    if not all(isinstance(text, str) for text in texts):
-        return error(400, "'texts' must be an array of strings.", "invalid_request_error")
+        return stack_service.error(503, "the model is still loading", "model_loading")
+    err = stack_service.check_model_match(body, SERVED_ID)
+    if err is not None:
+        return err
+    parsed, err = stack_service.check_rerank_body(body, MAX_TEXTS)
+    if err is not None:
+        return err
+    query, texts = parsed
     if len(texts) == 0:
         return {"results": []}
-    if len(texts) > MAX_TEXTS:
-        return error(
-            413,
-            "At most %d texts per request, got %d." % (MAX_TEXTS, len(texts)),
-            "invalid_request_error",
-        )
     question = {
         "id": "relevant",
         "type": "boolean",
@@ -177,7 +132,7 @@ def rerank(body: Dict[str, Any]):
     except (ValueError, TypeError, KeyError) as exc:
         # ValueError is also the over-length refusal (>2048 tokens): an error,
         # never a silent truncation.
-        return error(400, str(exc), "invalid_request_error")
+        return stack_service.error(400, str(exc), "invalid_request_error")
     scores = [result["answers"][0]["probability"] for result in out["results"]]
     order = sorted(range(len(scores)), key=lambda i: -scores[i])
     return {
@@ -190,13 +145,13 @@ def rerank(body: Dict[str, Any]):
 @app.post("/api/evaluate")
 def api_evaluate(body: Dict[str, Any]):
     if engine is None:
-        return error(503, "the model is still loading", "model_loading")
-    model = body.get("model") or body.get("model_id")
-    if model is not None and model != SERVED_ID:
-        return error(404, "No backend serves model '%s'." % model, "model_not_found")
+        return stack_service.error(503, "the model is still loading", "model_loading")
+    err = stack_service.check_model_match(body, SERVED_ID)
+    if err is not None:
+        return err
     try:
         # The exact upstream response shape (api_version, results, usage):
         # prepare() ignores the router's `model` key like any unknown key.
         return engine.evaluate(body)
     except (ValueError, TypeError, KeyError) as exc:
-        return error(400, str(exc), "invalid_request_error")
+        return stack_service.error(400, str(exc), "invalid_request_error")

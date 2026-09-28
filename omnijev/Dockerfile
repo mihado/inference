@@ -39,7 +39,8 @@ RUN pip install --no-cache-dir \
 RUN git clone https://github.com/tinnel123666888/OmniJev /opt/omnijev \
     && git -C /opt/omnijev checkout 0676e20980a6b87063ff8205966b44be0e7fb526
 ENV PYTHONPATH=/opt/omnijev
-COPY server.py .
+COPY omnijev/server.py ./server.py
+COPY py-common/stack_service.py ./stack_service.py
 EXPOSE 80
 # One worker per instance. A second replica is a separate service on the other
 # card (`make up-omnijev CONCURRENCY=2`), each process loading its own copy.

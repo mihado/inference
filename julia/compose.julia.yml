@@ -12,7 +12,9 @@ name: inference
 #   make up-julia / make down-julia
 
 x-julia: &julia
-  build: ./julia
+  build:
+      context: .
+      dockerfile: julia/Dockerfile
   restart: unless-stopped
   labels:
     - tei.backend=1

@@ -10,7 +10,9 @@ name: inference
 #   make up-laya / make down-laya
 
 x-laya: &laya
-  build: ./laya
+  build:
+      context: .
+      dockerfile: laya/Dockerfile
   restart: unless-stopped
   labels:
     - tei.backend=1

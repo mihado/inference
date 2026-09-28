@@ -17,16 +17,13 @@
 # shows an exit code the way the TEI and vLLM services do.
 import os
 import threading
-import traceback
-from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional
 
 import numpy as np
 import torch
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
 
 import laya
+import stack_service
 from laya.common import QTYPES, build_sequence, collate_items, temp_bucket
 from laya.presets import (
     email_questions,
@@ -72,13 +69,6 @@ agent: Optional[Any] = None
 MODEL_LOCK = threading.Lock()
 
 
-def error(status: int, message: str, code: str) -> JSONResponse:
-    return JSONResponse(
-        status_code=status,
-        content={"error": {"message": message, "type": code, "code": code}},
-    )
-
-
 def _load() -> None:
     global agent
     agent = laya.load(MODEL, device=DEVICE or None, subfolder=SUBFOLDER or None)
@@ -89,34 +79,13 @@ def _load() -> None:
     )
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    def run() -> None:
-        try:
-            _load()
-        except BaseException:
-            traceback.print_exc()
-            # A model that will not load is a stopped container, like TEI and vLLM:
-            # `docker ps` shows the restart, `docker logs` shows why.
-            os._exit(1)
-
-    threading.Thread(target=run, daemon=True, name="laya-load").start()
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
-
-
-@app.get("/health")
-def health() -> Dict[str, str]:
-    """Liveness only. Readiness is /info: it answers once the model is loaded."""
-    return {"status": "ok"}
+app = stack_service.make_app(_load, "laya-load")
 
 
 @app.get("/info")
 def info():
     if agent is None:
-        return error(503, "the model is still loading", "model_loading")
+        return stack_service.error(503, "the model is still loading", "model_loading")
     # TEI's /info shape. The router reads model_id from it and registers this
     # container under that one model, on the next 30s scan.
     return {
@@ -176,35 +145,21 @@ def _scores(agent, query: str, texts: list) -> np.ndarray:
 @app.post("/rerank")
 def rerank(body: Dict[str, Any]):
     if agent is None:
-        return error(503, "the model is still loading", "model_loading")
-    model = body.get("model") or body.get("model_id")
-    if model is not None and model != SERVED_ID:
-        return error(404, "No backend serves model '%s'." % model, "model_not_found")
-    query = body.get("query")
-    texts = body.get("texts")
-    if texts is None:
-        texts = body.get("documents")
-    if not isinstance(query, str) or not isinstance(texts, list):
-        return error(
-            400,
-            "'query' (string) and 'texts' (array of strings) are required.",
-            "invalid_request_error",
-        )
-    if not all(isinstance(text, str) for text in texts):
-        return error(400, "'texts' must be an array of strings.", "invalid_request_error")
+        return stack_service.error(503, "the model is still loading", "model_loading")
+    err = stack_service.check_model_match(body, SERVED_ID)
+    if err is not None:
+        return err
+    parsed, err = stack_service.check_rerank_body(body, MAX_TEXTS)
+    if err is not None:
+        return err
+    query, texts = parsed
     if len(texts) == 0:
         return {"results": []}
-    if len(texts) > MAX_TEXTS:
-        return error(
-            413,
-            "At most %d texts per request, got %d." % (MAX_TEXTS, len(texts)),
-            "invalid_request_error",
-        )
     try:
         with MODEL_LOCK:
             scores = _scores(agent, query, texts)
     except ValueError as exc:
-        return error(400, str(exc), "invalid_request_error")
+        return stack_service.error(400, str(exc), "invalid_request_error")
     order = np.argsort(-scores, kind="stable")
     return {
         "results": [
@@ -216,13 +171,13 @@ def rerank(body: Dict[str, Any]):
 @app.post("/v1/decisions")
 def decisions(body: Dict[str, Any]):
     if agent is None:
-        return error(503, "the model is still loading", "model_loading")
-    model = body.get("model")
-    if model is not None and model != SERVED_ID:
-        return error(404, "No backend serves model '%s'." % model, "model_not_found")
+        return stack_service.error(503, "the model is still loading", "model_loading")
+    err = stack_service.check_model_match(body, SERVED_ID)
+    if err is not None:
+        return err
     state = body.get("state")
     if not isinstance(state, (str, dict, list)):
-        return error(
+        return stack_service.error(
             400,
             "'state' is required: a string, an object, or an array of turns.",
             "invalid_request_error",
@@ -232,16 +187,16 @@ def decisions(body: Dict[str, Any]):
         preset = body.get("preset")
         preset_fn = PRESETS.get(preset) if isinstance(preset, str) else None
         if preset_fn is None:
-            return error(
+            return stack_service.error(
                 400,
                 "Provide 'questions', or a 'preset': %s." % ", ".join(sorted(PRESETS)),
                 "invalid_request_error",
             )
         questions = preset_fn()
     if not isinstance(questions, dict) or not questions:
-        return error(400, "'questions' must be a non-empty object.", "invalid_request_error")
+        return stack_service.error(400, "'questions' must be a non-empty object.", "invalid_request_error")
     try:
         with MODEL_LOCK:
             return agent.predict(state, questions)
     except (ValueError, KeyError, TypeError) as exc:
-        return error(400, str(exc), "invalid_request_error")
+        return stack_service.error(400, str(exc), "invalid_request_error")
