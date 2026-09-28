@@ -1,5 +1,6 @@
 # Wrappers over docker compose and scripts/model.sh.
 ROUTER_PORT ?= 8100
+ROUTER_URL ?= http://localhost:$(ROUTER_PORT)
 
 # Service-owned targets live with what they serve; included, not duplicated.
 include ollama/ollama.mk
@@ -36,6 +37,7 @@ help: ## list every target and flag
 		'GPU_B=<card>'    'second replica card (default: the other card)' \
 		'CONCURRENCY=1|2' 'replicas per Python profile (default 1)' \
 		'ROUTER_PORT=<p>' 'router port for `make models` (default 8100)' \
+		'ROUTER_URL=<url>' 'router base for `make smoke` (default http://localhost:$(ROUTER_PORT))' \
 		'SVC=<service>'   'service for `make logs`' \
 		'MODEL=<id>'      'model for `make run` (ad-hoc TEI slot)' \
 		'NAME=<name>'     'slot name for `make run` / `make stop`' \
@@ -121,6 +123,9 @@ logs: ## follow one service: make logs SVC=reranker
 throughput: ## vLLM's tokens/s and queue depth while it works
 	@out="$$(docker compose logs --since 5m voyage-embed voyage-embed-b 2>/dev/null | grep -E 'Avg prompt throughput|Running:' | tail -20)"; \
 	if [ -n "$$out" ]; then echo "$$out"; else echo "no throughput lines yet - vLLM writes them per interval while it works"; fi
+
+smoke: ## live smoke through the router (one inference per model kind)
+	ROUTER_URL="$(ROUTER_URL)" node scripts/smoke.mjs
 
 run: ## start a free ad-hoc TEI slot: make run MODEL=... [NAME=] [GPU=] [PORT=]
 	scripts/run.sh "$(MODEL)" $(if $(NAME),--name $(NAME)) $(if $(GPU),--gpu $(GPU)) $(if $(PORT),--port $(PORT))
