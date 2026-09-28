@@ -19,7 +19,7 @@
 import { createServer, request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
 
-import { accessLine, addBackend, backendName, eligibleBackends, infoPaths, modelAdvertises, openAiModelIds, pickBackend, recordStat, setBackendPaths, summarizeStats, teiModelId } from "./backends.mjs";
+import { accessLine, addBackend, backendName, eligibleBackends, infoMaxClientBatchSize, infoPaths, minClientBatchSize, modelAdvertises, openAiModelIds, pickBackend, recordStat, rerankDocumentCount, setBackendPaths, summarizeStats, teiModelId } from "./backends.mjs";
 
 const PORT = Number(process.env.PORT ?? 80);
 const BACKENDS = (process.env.BACKENDS ?? "")
@@ -45,6 +45,9 @@ let modelBackend = new Map();
 /** backend base url -> POST paths it advertised in /info (`paths`). A backend
  * that omits `paths` (TEI, vLLM) has no entry and routes the static set. */
 let backendPaths = new Map();
+/** backend base url -> the client batch bound its /info reported, absent when
+ * the backend reports none. */
+let backendBatch = new Map();
 /** model id -> request/error counts plus p50 latencies, per model and per
  * backend, since boot. Unknown-model probes ("-") are logged but not kept. */
 const stats = {};
@@ -117,29 +120,44 @@ async function fetchJson(url) {
 async function scan() {
   const found = new Map();
   const paths = new Map();
+  const bounds = new Map();
   const discovered = await dockerBackends().catch(() => []);
   const bases = [...new Set([...BACKENDS, ...discovered])];
   await Promise.all(
     bases.map(async (base) => {
-      for (const { id, paths: advertised } of await servedModels(base)) {
+      for (const { id, paths: advertised, maxClientBatchSize } of await servedModels(base)) {
         addBackend(found, id, base);
         setBackendPaths(paths, base, advertised);
+        if (maxClientBatchSize !== null) bounds.set(base, maxClientBatchSize);
       }
     }),
   );
   modelBackend = found;
   backendPaths = paths;
+  backendBatch = bounds;
   lastScan = Date.now();
 }
 
-/** Every model one backend serves, with the POST paths it advertises: TEI
- * names its one model in /info, anything else is asked for an OpenAI-style
- * list (which cannot advertise paths). */
+/** Every model one backend serves, with what its /info advertises: the POST
+ * paths and the client batch bound. TEI names its one model in /info;
+ * anything else is asked for an OpenAI-style list, which advertises neither. */
 async function servedModels(base) {
   const info = await fetchJson(`${base}/info`);
   const teiId = teiModelId(info);
-  if (teiId !== null) return [{ id: teiId, paths: infoPaths(info) }];
-  return openAiModelIds(await fetchJson(`${base}/v1/models`)).map((id) => ({ id, paths: [] }));
+  if (teiId !== null) {
+    return [
+      {
+        id: teiId,
+        paths: infoPaths(info),
+        maxClientBatchSize: infoMaxClientBatchSize(info),
+      },
+    ];
+  }
+  return openAiModelIds(await fetchJson(`${base}/v1/models`)).map((id) => ({
+    id,
+    paths: [],
+    maxClientBatchSize: null,
+  }));
 }
 
 function ensureFresh() {
@@ -282,7 +300,16 @@ async function handle(request, response) {
     await ensureFresh();
     return sendJson(response, 200, {
       object: "list",
-      data: [...modelBackend.keys()].map((id) => ({ id, object: "model", owned_by: "local" })),
+      // Additive fields: a client that reads only `id` is unaffected. The
+      // bound is the strictest replica's, so a client chunks safely without
+      // reading a container command. See docs/operations.md,
+      // "Client batch bounds".
+      data: [...modelBackend.keys()].map((id) => {
+        const bound = minClientBatchSize(modelBackend.get(id), backendBatch);
+        const entry = { id, object: "model", owned_by: "local" };
+        if (bound !== null) entry.max_client_batch_size = bound;
+        return entry;
+      }),
     });
   }
 
@@ -326,6 +353,24 @@ async function handle(request, response) {
     if (backend === undefined) {
       log(model, "-", 404);
       return sendError(response, 404, `No backend serves model '${model}'.`, "model_not_found");
+    }
+    // Fail fast on an over-bound request instead of letting the backend
+    // answer 400 with its own wording. The bound is the one advertised above,
+    // so the error teaches the client the same number /v1/models does.
+    if (path === "/rerank" || path === "/v1/rerank") {
+      const bound = minClientBatchSize(modelBackend.get(model), backendBatch);
+      const count = rerankDocumentCount(body);
+      if (bound !== null && count !== null && count > bound) {
+        log(model, backend, 413);
+        return sendJson(response, 413, {
+          error: {
+            message: `This model accepts at most ${bound} documents per request, got ${count}.`,
+            type: "invalid_request_error",
+            code: "batch_too_large",
+            max_client_batch_size: bound,
+          },
+        });
+      }
     }
     const upstream = backendRequest(path, body);
     const { status, ms } = await proxy(response, backend, upstream.path, upstream.body);

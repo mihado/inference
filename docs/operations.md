@@ -66,6 +66,17 @@ Compose passes `HF_TOKEN` from the shell or the ignored `.env` to every server t
 | The download does not move | `du -sh "$HF_CACHE"`; `docker stats` (NET I/O) | A growing value is a download. A static value is a stop. A restart continues from the cache. |
 | Why did the container stop? | `docker inspect --format 'exit={{.State.ExitCode}} oom={{.State.OOMKilled}}' reranker` | The exit code, and the out-of-memory flag. |
 
+## Client batch bounds
+
+Each entry in `GET /v1/models` carries `max_client_batch_size` when the backend reports one in its `/info` — the number of documents one `/rerank` call may carry. Chunk at the advertised value instead of hardcoding a provider's number. With two replicas of a model the router advertises the **smaller** bound, so the client respects the stricter build:
+
+```sh
+curl -s localhost:8100/v1/models | jq '.data[] | select(.id | test("reranker"))'
+# { "id": "Alibaba-NLP/gte-reranker-modernbert-base", "max_client_batch_size": 64, ... }
+```
+
+The field is absent when a backend reports no bound (vLLM, ollama). A `/rerank` request past the advertised bound is refused by the router with 413 `batch_too_large` and the same number in the error body, so an over-batching client fails fast with the number it should chunk to instead of the backend's own 400. Raise the limit in the compose command (`--max-client-batch-size`), recreate, and the new value appears on the next catalogue scan (within 30s, no router restart).
+
 ## Gotchas
 
 - The message `429 Model is overloaded` comes from TEI. It is backpressure, not a rate limit.
@@ -73,7 +84,7 @@ Compose passes `HF_TOKEN` from the shell or the ignored `.env` to every server t
   - The limit `--max-batch-tokens` is 8192. So the queue can overflow.
   - Lower `--max-client-batch-size`, or raise `--max-batch-tokens`.
 - `--max-batch-tokens` must be the largest value that the model accepts. TEI cannot calculate this value alone.
-- `--max-client-batch-size` bounds one *request*; a client that needs more sends several. The router should advertise the bound per model so clients know it — see [client-batch-limits.md](client-batch-limits.md).
+- `--max-client-batch-size` bounds one *request*; a client that needs more sends several. The advertised `max_client_batch_size` in `/v1/models` carries that number, so a client chunks to it instead of hardcoding another provider's value.
 - `--served-model-name` sets the model name for the OpenAI surface. If you do not set it, the name is the Hugging Face id.
 - A Matryoshka model can serve more dimensions than you index.
   - `voyage-4-nano` serves 2048 dimensions.

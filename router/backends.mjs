@@ -76,6 +76,30 @@ export function modelAdvertises(urls, pathsByBase, path) {
   return Array.isArray(urls) && urls.some((base) => pathsByBase.get(base)?.has(path) === true);
 }
 
+/** The client batch bound a backend reports in /info, or null when it reports
+ * none. This is the authoritative source: a client that knows the bound
+ * chunks to it instead of guessing another provider's number. */
+export function infoMaxClientBatchSize(info) {
+  const value = info?.max_client_batch_size;
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/** The number of documents a body asks a reranker to score, or null when the
+ * shape carries no document list. `texts` and `documents` are the two names
+ * the same field travels under (TEI and Cohere). */
+export function rerankDocumentCount(body) {
+  const list = body?.texts ?? body?.documents;
+  return Array.isArray(list) ? list.length : null;
+}
+
+/** The smallest bound across a model's backends — a client must respect the
+ * strictest replica — or null when no backend reports one. */
+export function minClientBatchSize(urls, boundsByBase) {
+  if (!Array.isArray(urls)) return null;
+  const bounds = urls.map((base) => boundsByBase.get(base)).filter((bound) => bound !== undefined);
+  return bounds.length > 0 ? Math.min(...bounds) : null;
+}
+
 /** The backends of a model eligible for `path`: an advertised path routes
  * only to backends that advertised it (so a rolling upgrade never sends it
  * to an un-upgraded replica); static paths, and backends that advertise
