@@ -19,7 +19,7 @@
 import { createServer, request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
 
-import { accessLine, addBackend, addPaths, backendName, infoPaths, openAiModelIds, pickBackend, teiModelId } from "./backends.mjs";
+import { accessLine, addBackend, backendName, eligibleBackends, infoPaths, modelAdvertises, openAiModelIds, pickBackend, setBackendPaths, teiModelId } from "./backends.mjs";
 
 const PORT = Number(process.env.PORT ?? 80);
 const BACKENDS = (process.env.BACKENDS ?? "")
@@ -36,10 +36,9 @@ const BACKEND_LABEL = process.env.BACKEND_LABEL ?? "tei.backend";
 /** model id -> every backend base url that serves it, in discovery order. A
  * model served by two GPUs has two entries, and the router takes turns. */
 let modelBackend = new Map();
-/** model id -> POST paths its backends advertise in /info (`paths`), beyond
- * the static set below. A backend that omits `paths` (TEI, vLLM) leaves no
- * entry and routes the static set only. */
-let modelPaths = new Map();
+/** backend base url -> POST paths it advertised in /info (`paths`). A backend
+ * that omits `paths` (TEI, vLLM) has no entry and routes the static set. */
+let backendPaths = new Map();
 /** model id -> how many requests it has been asked for. Kept outside the scan, so
  * a rescan does not reset the rotation. */
 const turns = new Map();
@@ -105,12 +104,12 @@ async function scan() {
     bases.map(async (base) => {
       for (const { id, paths: advertised } of await servedModels(base)) {
         addBackend(found, id, base);
-        addPaths(paths, id, advertised);
+        setBackendPaths(paths, base, advertised);
       }
     }),
   );
   modelBackend = found;
-  modelPaths = paths;
+  backendPaths = paths;
   lastScan = Date.now();
 }
 
@@ -132,12 +131,16 @@ function ensureFresh() {
   return scanning;
 }
 
-/** The next backend in a model's rotation, after a fresh catalogue. */
-async function resolveBackend(model) {
+/** The next eligible backend in a model's rotation, after a fresh catalogue.
+ * The turn advances only for served models, so junk model names cannot grow
+ * the map without bound. */
+async function resolveBackend(model, path, isStatic) {
   await ensureFresh();
+  const urls = eligibleBackends(modelBackend.get(model), backendPaths, path, isStatic);
+  if (urls === undefined) return undefined;
   const turn = turns.get(model) ?? 0;
   turns.set(model, turn + 1);
-  return pickBackend(modelBackend.get(model), turn);
+  return pickBackend(urls, turn);
 }
 
 /** The static POST paths that carry a model in their JSON body. Backends may
@@ -176,7 +179,10 @@ async function readBody(request) {
 }
 
 /** Proxies one request to a backend path, streams the response back, and
- * answers the upstream status with the elapsed time for the access log. */
+ * answers the upstream status with the elapsed time for the access log.
+ * Never throws: a backend that drops mid-response and a client that leaves
+ * mid-response both end here, and either must be an error line, not an
+ * exit (Node would otherwise turn the rejection into a process crash). */
 async function proxy(response, backend, path, body) {
   const started = Date.now();
   let upstream;
@@ -187,18 +193,30 @@ async function proxy(response, backend, path, body) {
       body: JSON.stringify(body),
     });
   } catch {
-    sendError(response, 502, "The backend is unreachable.", "server_error");
+    if (!response.headersSent) sendError(response, 502, "The backend is unreachable.", "server_error");
+    else response.destroy();
     return { status: 502, ms: Date.now() - started };
   }
-  const text = await upstream.text();
-  response.writeHead(upstream.status, {
-    "content-type": upstream.headers.get("content-type") ?? "application/json",
-  });
-  response.end(text);
+  let text;
+  try {
+    text = await upstream.text();
+  } catch {
+    if (!response.headersSent) sendError(response, 502, "The backend dropped the response.", "server_error");
+    else response.destroy();
+    return { status: 502, ms: Date.now() - started };
+  }
+  try {
+    response.writeHead(upstream.status, {
+      "content-type": upstream.headers.get("content-type") ?? "application/json",
+    });
+    response.end(text);
+  } catch {
+    response.destroy();
+  }
   return { status: upstream.status, ms: Date.now() - started };
 }
 
-const server = createServer(async (request, response) => {
+async function handle(request, response) {
   const url = new URL(request.url ?? "/", "http://localhost");
   const path = url.pathname;
 
@@ -218,11 +236,14 @@ const server = createServer(async (request, response) => {
     const started = Date.now();
     const body = await readBody(request);
     const model = body?.model ?? body?.model_id;
-    // A backend may advertise paths beyond the static set in /info (`paths`);
-    // anything else 404s exactly as before — the model is read first only to
-    // ask the catalogue, and the 400s below are unchanged.
-    const advertised = typeof model === "string" && modelPaths.get(model)?.has(path) === true;
-    if (!POST_PATHS.has(path) && !advertised) {
+    // A backend may advertise paths beyond the static set in /info (`paths`,
+    // see README.md "Router"); anything else 404s exactly as before — the
+    // model is read first only to ask the catalogue, and the 400s below are
+    // unchanged.
+    const isStatic = POST_PATHS.has(path);
+    const advertised =
+      typeof model === "string" && modelAdvertises(modelBackend.get(model), backendPaths, path);
+    if (!isStatic && !advertised) {
       return sendError(response, 404, "Not found.", "invalid_request_error");
     }
     const log = (model, backend, status) =>
@@ -239,7 +260,7 @@ const server = createServer(async (request, response) => {
       log("-", "-", 400);
       return sendError(response, 400, "A model is required.", "invalid_request_error");
     }
-    const backend = await resolveBackend(model);
+    const backend = await resolveBackend(model, path, isStatic);
     if (backend === undefined) {
       log(model, "-", 404);
       return sendError(response, 404, `No backend serves model '${model}'.`, "model_not_found");
@@ -251,12 +272,38 @@ const server = createServer(async (request, response) => {
   }
 
   return sendError(response, 404, "Not found.", "invalid_request_error");
+}
+
+const server = createServer((request, response) => {
+  handle(request, response).catch((error) => {
+    // Last resort: a client that disconnects mid-body lands here (ECONNRESET
+    // from readBody) alongside real bugs. Either way the answer is local —
+    // never a process exit, which would drop every model at once.
+    console.error(`router: unhandled request error: ${String(error?.message ?? error).slice(0, 200)}`);
+    try {
+      if (!response.headersSent && !response.writableEnded) {
+        sendJson(response, 500, {
+          error: { message: "Internal error.", type: "server_error", code: "server_error" },
+        });
+      } else {
+        response.destroy();
+      }
+    } catch {
+      response.destroy();
+    }
+  });
 });
 
 await scan();
 setInterval(() => {
   scan().catch(() => {});
 }, MODEL_TTL_MS).unref();
+
+// A proxy stays up: log stragglers instead of taking Node's default, which
+// turns an unhandled rejection into a process exit.
+process.on("unhandledRejection", (error) => {
+  console.error(`router: unhandled rejection: ${String(error?.message ?? error).slice(0, 200)}`);
+});
 
 server.listen(PORT, () => {
   console.log(
