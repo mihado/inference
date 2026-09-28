@@ -135,7 +135,7 @@ def _scores(agent, query: str, texts: list) -> np.ndarray:
     t_scale = agent.temperature_by_options.get(
         temp_bucket(QTYPES["noul"], 2), agent.temperature[QTYPES["noul"]]
     )
-    z = logits.float().numpy() / t_scale
+    z = logits.float().cpu().numpy() / t_scale
     z = z - z.max(axis=1, keepdims=True)
     p = np.exp(z)
     p = p / p.sum(axis=1, keepdims=True)
