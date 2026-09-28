@@ -96,9 +96,6 @@ def info():
         "model_dtype": "bfloat16",
         "device": str(next(model.parameters()).device),
         "max_client_batch_size": MAX_TEXTS,
-        # POST paths this service answers: the router unions these with its
-        # static set (docs/path-discovery.md), so a new surface routes here
-        # with no router change.
         "paths": ["/rerank"],
     }
 

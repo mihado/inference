@@ -130,9 +130,6 @@ def info():
         "model_id": SERVED_ID,
         "device": _device(),
         "max_client_batch_size": MAX_QUESTIONS,
-        # POST paths this service answers: the router unions these with its
-        # static set (docs/path-discovery.md), so a new surface routes here
-        # with no router change.
         "paths": ["/v1/predict"],
     }
 

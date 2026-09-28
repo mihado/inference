@@ -40,6 +40,19 @@ today.
   fail-open: the allowlist remains a boundary, it just moves from code to
   catalogue.
 
+## Advertised surfaces
+
+One source of truth (each service's `/info` carries its row):
+
+| Service | `paths` |
+| --- | --- |
+| `laya` | `/rerank`, `/v1/decisions` |
+| `agentjev` | `/rerank`, `/api/evaluate` |
+| `jina` | `/rerank` |
+| `jina-embed` | `/v1/embeddings` |
+| `omnijev` | `/v1/systemone` |
+| `julia` | `/v1/predict` |
+
 ## Rollout
 
 1. Router: build the routable set as static defaults ∪ advertised paths;

@@ -142,9 +142,6 @@ def info():
         "model_dtype": str(model.dtype).replace("torch.", ""),
         "device": str(model.dev),
         "max_client_batch_size": MAX_QUESTIONS,
-        # POST paths this service answers: the router unions these with its
-        # static set (docs/path-discovery.md), so a new surface routes here
-        # with no router change.
         "paths": ["/v1/systemone"],
     }
 
