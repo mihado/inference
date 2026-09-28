@@ -40,9 +40,9 @@ One answer per question: `choice` with `probabilities` and `max_probability`, `s
 | Variable | Default | Effect |
 | --- | --- | --- |
 | `JULIA_REPO` | `SupersonicLabs/Julia-1` | the Hub repository (code + weights), or a local directory |
-| `JULIA_DEVICE` | auto (`cuda` when visible, else `cpu`) | `cpu` runs without a GPU — the runtime is CPU-capable; `JULIA_CPU_THREADS` (default 4) tunes it |
+| `JULIA_DEVICE` | auto (`cuda` when visible, else `cpu`) | `cpu` runs without a GPU — the runtime is CPU-capable |
 | `JULIA_MAX_LENGTH` | `8192` | combined state/question/option token budget |
-| `JULIA_HEAD_LENGTH` | `512` | the question-and-options budget (each option gets 48 tokens) |
+| `JULIA_HEAD_LENGTH` | `512` | the question-and-options budget |
 | `JULIA_MAX_QUESTIONS` | `32` | per-request question cap |
 
 ### Honest limits

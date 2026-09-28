@@ -13,8 +13,8 @@ The two servers are:
 
 | Name | Port | GPU | Runtime | Model |
 | --- | --- | --- | --- | --- |
-| `reranker` | 8021 | 1 | TEI | `Alibaba-NLP/gte-reranker-modernbert-base` |
-| `voyage-embed` | 8001 | 1 | vLLM | `voyageai/voyage-4-nano` |
+| `reranker` | 8021 | 0 | TEI | `Alibaba-NLP/gte-reranker-modernbert-base` |
+| `voyage-embed` | 8001 | 0 | vLLM | `voyageai/voyage-4-nano` |
 | `router` | 8100 | — | Node.js | — |
 
 `voyage-embed` uses vLLM, not TEI. `voyage-4-nano` is a bf16 model:
@@ -52,7 +52,7 @@ Five services start by default: `router`, plus a pair for each of the two models
 | `make up-ollama` / `make down-ollama` | the Ollama GGUF runner (reference only) |
 | `make up-all` / `make down-all` | every profile, everything |
 
-Port bands, so each kind of server lives in its own mental space: 8001–8004 embeds, 8021–8022 rerankers, 8041 upward Python services, 8080–8099 optionals and ad-hoc slots (pinned top-down from 8099, ad-hoc bottom-up from 8080), 8100 router.
+Port bands, so each kind of server lives in its own mental space: 8001–8004 embeds, 8021–8022 rerankers, 8041–8048 decision services, 8080–8099 optionals and ad-hoc slots (the non-commercial `jina` pair lives here too: 8095/8094 and 8093/8092; pinned top-down from 8099, ad-hoc bottom-up from 8080), 8100 router.
 
 Each `up-*` starts the default stack as well, so one command always leaves a router in front of what it started. Each `down-*` removes only its own profile's services — the router and the default models keep running. `make up-all` does not fit this box: every profile defaults to GPU 0, against `voyage-embed`'s half-card reservation — bring profiles up selectively instead. `GPU=` moves a profile's services to another card (`make up-laya GPU=1`); empty means each profile's default. The compose command underneath, for the rerankers profile:
 
@@ -151,3 +151,7 @@ The codex retrieval evaluation numbers live in [docs/evaluation.md](docs/evaluat
 ## Operations
 
 Box setup and troubleshooting live in [docs/operations.md](docs/operations.md): first start, NVIDIA prerequisites, image tags, the shared model cache, diagnostics, and gotchas.
+
+## Notes
+
+Background reading, not runbooks: [tuning](TUNING.md) (how to measure an indexing build), [LoRA](LORA.md) (cheap adaptation notes), [vLLM](VLLM.md) (engine notes).
