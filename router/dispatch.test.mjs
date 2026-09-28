@@ -44,12 +44,17 @@ let routerBase;
 let child;
 let stubA;
 let stubB;
+let stubC;
 
 test.before(async () => {
   stubA = stub("a", () => ({ model_id: "test-rerank" }));
   stubB = stub("b", () => ({ object: "list", data: [{ id: "test-embed" }, { id: "test-rerank" }] }));
+  // A backend advertising a path the router never hardcoded, with junk the
+  // router must ignore (docs/path-discovery.md).
+  stubC = stub("c", () => ({ model_id: "test-paths", paths: ["/v1/novel", "relative", 42, "/v1/novel"] }));
   const portA = await listen(stubA.server);
   const portB = await listen(stubB.server);
+  const portC = await listen(stubC.server);
 
   const routerPort = await freePort();
   child = spawn(process.execPath, ["index.mjs"], {
@@ -57,7 +62,7 @@ test.before(async () => {
     env: {
       ...process.env,
       PORT: String(routerPort),
-      BACKENDS: `http://127.0.0.1:${portA},http://127.0.0.1:${portB}`,
+      BACKENDS: `http://127.0.0.1:${portA},http://127.0.0.1:${portB},http://127.0.0.1:${portC}`,
       DOCKER_SOCK: "/nonexistent-router-test.sock",
       MODEL_TTL_MS: "60000",
     },
@@ -81,6 +86,7 @@ test.after(async () => {
   await new Promise((resolve) => child.on("exit", resolve));
   stubA.server.close();
   stubB.server.close();
+  stubC.server.close();
 });
 
 async function post(path, body, raw) {
@@ -96,7 +102,7 @@ test("GET /v1/models is the union of both catalogue shapes", async () => {
   const response = await fetch(`${routerBase}/v1/models`);
   assert.equal(response.status, 200);
   const ids = (await response.json()).data.map((entry) => entry.id).sort();
-  assert.deepEqual(ids, ["test-embed", "test-rerank"]);
+  assert.deepEqual(ids, ["test-embed", "test-paths", "test-rerank"]);
 });
 
 test("POST /rerank normalizes Cohere documents to TEI texts", async () => {
@@ -151,6 +157,21 @@ test("POST /v1/systemone forwards untouched", async () => {
   assert.equal(status, 200);
   assert.equal(body.path, "/v1/systemone");
   assert.deepEqual(body.body, payload);
+});
+
+test("POST to an advertised path routes with no router change", async () => {
+  const payload = { model: "test-paths", state: "s" };
+  const { status, body } = await post("/v1/novel", payload);
+  assert.equal(status, 200);
+  assert.equal(body.stub, "c");
+  assert.equal(body.path, "/v1/novel");
+  assert.deepEqual(body.body, payload);
+});
+
+test("advertised junk never routes, and an unadvertised path still 404s", async () => {
+  assert.equal((await post("/relative", { model: "test-paths" })).status, 404);
+  assert.equal((await post("/v1/unknown", { model: "test-paths" })).status, 404);
+  assert.equal((await post("/v1/novel", { model: "nope" })).status, 404);
 });
 
 test("POST /v1/embeddings forwards untouched to the OpenAI-shaped backend", async () => {

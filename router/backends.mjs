@@ -50,6 +50,28 @@ export function addBackend(found, id, base) {
   else if (!urls.includes(base)) urls.push(base);
 }
 
+/** POST paths a backend advertises in /info (`paths`), or [] for anything
+ * malformed. Entries must be absolute paths; anything else is ignored, never
+ * an error — a misbehaving backend degrades to unroutable paths, not a broken
+ * catalogue. */
+export function infoPaths(info) {
+  const list = Array.isArray(info?.paths) ? info.paths : [];
+  const seen = new Set();
+  for (const entry of list) {
+    if (typeof entry === "string" && entry.startsWith("/") && !seen.has(entry)) seen.add(entry);
+  }
+  return [...seen];
+}
+
+/** Records that the backends serving `id` also answer `paths`. Empty adds
+ * nothing, so backends that omit `paths` leave no trace. */
+export function addPaths(found, id, paths) {
+  if (paths.length === 0) return;
+  const known = found.get(id);
+  if (known === undefined) found.set(id, new Set(paths));
+  else for (const path of paths) known.add(path);
+}
+
 /** Round-robin over a model's backends. Pure: the caller keeps the turn.
  *
  * Round-robin is enough here because every request is seconds long and evenly

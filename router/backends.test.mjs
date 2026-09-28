@@ -6,7 +6,9 @@ import { test } from "node:test";
 import {
   accessLine,
   addBackend,
+  addPaths,
   backendName,
+  infoPaths,
   openAiModelIds,
   pickBackend,
   teiModelId,
@@ -59,6 +61,26 @@ test("pickBackend cycles in order, and answers undefined for an unknown model", 
   assert.equal(pickBackend(urls, 3), "http://b:80");
   assert.equal(pickBackend(undefined, 0), undefined);
   assert.equal(pickBackend([], 0), undefined);
+});
+
+test("infoPaths keeps absolute paths, drops junk, dedupes", () => {
+  assert.deepEqual(infoPaths({ model_id: "m", paths: ["/v1/novel", "/v1/novel", "/rerank"] }), [
+    "/v1/novel",
+    "/rerank",
+  ]);
+  assert.deepEqual(infoPaths({ model_id: "m", paths: ["relative", 42, null, ""] }), []);
+  assert.deepEqual(infoPaths({ model_id: "m", paths: "nope" }), []);
+  assert.deepEqual(infoPaths({ model_id: "m" }), []);
+  assert.deepEqual(infoPaths(null), []);
+});
+
+test("addPaths unions per model, and empty adds nothing", () => {
+  const found = new Map();
+  addPaths(found, "m", []);
+  assert.equal(found.get("m"), undefined);
+  addPaths(found, "m", ["/a"]);
+  addPaths(found, "m", ["/a", "/b"]);
+  assert.deepEqual([...found.get("m")].sort(), ["/a", "/b"]);
 });
 
 test("accessLine fits one line and strips forged newlines", () => {
