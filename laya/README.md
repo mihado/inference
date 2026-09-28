@@ -57,6 +57,9 @@ docker compose -f compose.yml -f laya/compose.laya.yml \
   --profile laya up -d laya
 ```
 
+For the codex evidence-judge bring-up — this checkpoint, the verification probes, and the
+call shapes the product sends — see [evidence-judge.md](evidence-judge.md).
+
 ### Why one noul per document
 
 A choice question scores every option at its own marker, and all options of a question share one `head_max_len` budget (192 tokens on the root checkpoint). Thirty documents as choice options leave roughly five tokens each, and options that short stop being distinguishable — the collapse the model card measures on Banking77 (0.425 accuracy). So `/rerank` sends one fixed two-option `noul` question per (query, document) pair instead: each pair keeps the whole state budget, and the same `collate_items` batch that `system_one` uses for many questions puts all thirty pairs in one forward pass. Full documents, one pass, no shortlist.
