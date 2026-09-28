@@ -123,6 +123,15 @@ class DecodeDataUrlTest(unittest.TestCase):
                 self.assertIsNone(raw)
                 self.assertTrue(refusal)
 
+    def test_oversize_refused_before_decoding(self):
+        url = "data:image/png;base64,%s" % ("QQ==" * 100)
+        raw, refusal = stack_service.decode_data_url(url, max_bytes=10)
+        self.assertIsNone(raw)
+        self.assertIn("10", refusal)
+        raw, refusal = stack_service.decode_data_url(url)
+        self.assertIsNone(refusal)
+        self.assertTrue(raw)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
