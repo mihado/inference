@@ -26,7 +26,8 @@ RUN pip install --no-cache-dir \
     huggingface_hub \
     safetensors \
     numpy
-COPY server.py .
+COPY julia/server.py ./server.py
+COPY py-common/stack_service.py ./stack_service.py
 EXPOSE 80
 # One worker per instance. A second replica is a separate service on the other
 # card (`make up-julia CONCURRENCY=2`), each process loading its own copy.

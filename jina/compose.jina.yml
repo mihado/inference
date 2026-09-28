@@ -11,7 +11,9 @@ name: inference
 #   make up-jina / make down-jina
 
 x-jina: &jina
-  build: ./jina
+  build:
+      context: .
+      dockerfile: jina/Dockerfile
   restart: unless-stopped
   labels:
     - tei.backend=1

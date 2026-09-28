@@ -12,7 +12,9 @@ name: inference
 #   make up-omnijev / make down-omnijev
 
 x-omnijev: &omnijev
-  build: ./omnijev
+  build:
+      context: .
+      dockerfile: omnijev/Dockerfile
   restart: unless-stopped
   labels:
     - tei.backend=1

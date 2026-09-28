@@ -10,7 +10,9 @@ name: inference
 #   make up-agentjev / make down-agentjev
 
 x-agentjev: &agentjev
-  build: ./agentjev
+  build:
+      context: .
+      dockerfile: agentjev/Dockerfile
   restart: unless-stopped
   labels:
     - tei.backend=1

@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir \
     fastapi==0.141.1 \
     uvicorn==0.53.0 \
     transformers==5.17.0
-COPY server.py .
+COPY laya/server.py ./server.py
+COPY py-common/stack_service.py ./stack_service.py
 EXPOSE 80
 # One worker: each worker process would load its own copy of the checkpoint.
 CMD ["python3", "-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "80", "--workers", "1"]

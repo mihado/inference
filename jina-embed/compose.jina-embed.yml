@@ -15,7 +15,9 @@ name: inference
 #   make up-jina-embed / make down-jina-embed
 
 x-jina-embed: &jina-embed
-  build: ./jina-embed
+  build:
+      context: .
+      dockerfile: jina-embed/Dockerfile
   restart: unless-stopped
   labels:
     - tei.backend=1

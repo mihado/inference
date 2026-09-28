@@ -26,7 +26,8 @@ ARG AGENTJEV_SHA=b66a8cef7abdf66e6795eb229b55b387709f6ff7
 RUN git clone https://github.com/malevrigns/agent-jev.git /opt/agent-jev \
     && git -C /opt/agent-jev checkout $AGENTJEV_SHA
 ENV PYTHONPATH=/opt/agent-jev
-COPY server.py .
+COPY agentjev/server.py ./server.py
+COPY py-common/stack_service.py ./stack_service.py
 EXPOSE 80
 # One worker: each worker process would load its own copy of the checkpoint.
 CMD ["python3", "-m", "uvicorn", "server:app", "--host", "0.0.0.0", "--port", "80", "--workers", "1"]
