@@ -308,3 +308,15 @@ test("GET /health answers without a catalogue scan", async () => {
   assert.equal(response.status, 200);
   assert.equal((await response.json()).status, "ok");
 });
+
+test("GET /health reports per-model and per-backend counts", async () => {
+  const body = await (await fetch(`${routerBase}/health`)).json();
+  assert.equal(typeof body.uptime_s, "number");
+  const rerank = body.stats["test-rerank"];
+  assert.ok(rerank.requests >= 10, `requests=${rerank.requests}`);
+  assert.equal(rerank.errors, 0);
+  assert.ok(Number.isFinite(rerank.p50_ms));
+  assert.equal(Object.keys(rerank.backends).length, 2);
+  assert.ok(body.stats["test-flaky"].errors >= 1);
+  assert.ok(body.stats["nope"].errors >= 1);
+});

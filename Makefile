@@ -138,6 +138,7 @@ smoke: ## live smoke through the router (one inference per model kind)
 
 test: ## the unit tests (no GPU, no servers)
 	node --test router/backends.test.mjs router/dispatch.test.mjs scripts/smoke-config.test.mjs
+	uv run --no-project --with fastapi python py-common/stack_service_test.py
 
 run: ## start a free ad-hoc TEI slot: make run MODEL=... [NAME=] [GPU=] [PORT=]
 	scripts/run.sh "$(MODEL)" $(if $(NAME),--name $(NAME)) $(if $(GPU),--gpu $(GPU)) $(if $(PORT),--port $(PORT))
