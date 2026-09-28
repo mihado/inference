@@ -24,18 +24,13 @@
 # whose /info names a model, so a model that is still loading is simply not
 # routable, while /health stays green for the compose healthcheck. A model that
 # fails to load exits the process, the way the TEI and vLLM services do.
-import base64
-import binascii
 import os
 import shutil
 import tempfile
 import threading
-import traceback
-from contextlib import asynccontextmanager
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+import stack_service
 
 # One code base, one API, three sizes; 0.8B is the default because it fits any
 # card. An explicit OMNIJEV_CKPT / OMNIJEV_BASE pair beats the size catalog —
@@ -67,28 +62,6 @@ model: Optional[Any] = None
 MODEL_LOCK = threading.Lock()
 
 
-def error(status: int, message: str, code: str) -> JSONResponse:
-    return JSONResponse(
-        status_code=status,
-        content={"error": {"message": message, "type": code, "code": code}},
-    )
-
-
-def _decode_image(url: str) -> Tuple[Optional[bytes], Optional[str]]:
-    """Bytes for a base64 image data URL, or a refusal message.
-
-    Only `data:` URLs pass: fetching a caller-supplied URL would add the
-    outbound-fetch surface the router deliberately does not have.
-    """
-    header, separator, payload = url.partition(",")
-    if not url.startswith("data:") or separator == "" or ";base64" not in header:
-        return None, "Only base64 'data:' URLs are accepted; no outbound fetch."
-    try:
-        return base64.b64decode(payload, validate=True), None
-    except (binascii.Error, ValueError):
-        return None, "The data URL payload is not valid base64."
-
-
 def _load() -> None:
     global model
     from huggingface_hub import snapshot_download
@@ -107,34 +80,13 @@ def _load() -> None:
     )
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    def run() -> None:
-        try:
-            _load()
-        except BaseException:
-            traceback.print_exc()
-            # A model that will not load is a stopped container: `docker ps`
-            # shows the restart, `docker logs` shows why.
-            os._exit(1)
-
-    threading.Thread(target=run, daemon=True, name="omnijev-load").start()
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
-
-
-@app.get("/health")
-def health() -> Dict[str, str]:
-    """Liveness only. Readiness is /info: it answers once the model is loaded."""
-    return {"status": "ok"}
+app = stack_service.make_app(_load, "omnijev-load")
 
 
 @app.get("/info")
 def info():
     if model is None:
-        return error(503, "the model is still loading", "model_loading")
+        return stack_service.error(503, "the model is still loading", "model_loading")
     # TEI's /info shape. The router reads model_id from it and registers this
     # container under that one model, on the next 30s scan.
     return {
@@ -149,42 +101,42 @@ def info():
 @app.post("/v1/systemone")
 def systemone(body: Dict[str, Any]):
     if model is None:
-        return error(503, "the model is still loading", "model_loading")
-    req_model = body.get("model")
-    if req_model is not None and req_model != SERVED_ID:
-        return error(404, "No backend serves model '%s'." % req_model, "model_not_found")
+        return stack_service.error(503, "the model is still loading", "model_loading")
+    err = stack_service.check_model_match(body, SERVED_ID)
+    if err is not None:
+        return err
     state = body.get("state")
     if not isinstance(state, dict):
-        return error(
+        return stack_service.error(
             400,
             "'state' (an object with 'images') is required.",
             "invalid_request_error",
         )
     questions = body.get("questions")
     if not isinstance(questions, dict) or not questions:
-        return error(
+        return stack_service.error(
             400,
             "'questions' (a non-empty object) is required.",
             "invalid_request_error",
         )
     if len(questions) > MAX_QUESTIONS:
-        return error(
+        return stack_service.error(
             413,
             "At most %d questions per request, got %d." % (MAX_QUESTIONS, len(questions)),
             "invalid_request_error",
         )
     images = state.get("images")
     if not isinstance(images, list) or len(images) != 1 or not isinstance(images[0], str):
-        return error(
+        return stack_service.error(
             400,
             "'state.images' must carry exactly one base64 data: URL — this "
             "release reads images[0], and more are refused rather than "
             "silently ignored.",
             "invalid_request_error",
         )
-    decoded, refusal = _decode_image(images[0])
+    decoded, refusal = stack_service.decode_data_url(images[0])
     if decoded is None:
-        return error(400, refusal or "The image is malformed.", "invalid_request_error")
+        return stack_service.error(400, refusal or "The image is malformed.", "invalid_request_error")
     workdir = tempfile.mkdtemp(prefix="omnijev-")
     try:
         path = os.path.join(workdir, "state.png")
@@ -196,7 +148,7 @@ def systemone(body: Dict[str, Any]):
         with MODEL_LOCK:
             answers = model.system_one(call_state, questions)
     except (ValueError, KeyError, TypeError, RuntimeError, OSError) as exc:
-        return error(400, str(exc), "invalid_request_error")
+        return stack_service.error(400, str(exc), "invalid_request_error")
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
     return {"object": "systemone", "model": SERVED_ID, "answers": answers}

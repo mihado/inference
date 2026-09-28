@@ -30,12 +30,9 @@
 import os
 import sys
 import threading
-import traceback
-from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+import stack_service
 
 # The Hub repository doubles as the runtime: code and weights, one snapshot.
 REPO = os.environ.get("JULIA_REPO") or "SupersonicLabs/Julia-1"
@@ -53,13 +50,6 @@ model: Optional[Any] = None
 # a separate service on the other card (`make up-julia CONCURRENCY=2`), with its
 # own copy and its own lock.
 MODEL_LOCK = threading.Lock()
-
-
-def error(status: int, message: str, code: str) -> JSONResponse:
-    return JSONResponse(
-        status_code=status,
-        content={"error": {"message": message, "type": code, "code": code}},
-    )
 
 
 def _device() -> str:
@@ -96,34 +86,13 @@ def _load() -> None:
     print("[julia] %s ready" % SERVED_ID, flush=True)
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    def run() -> None:
-        try:
-            _load()
-        except BaseException:
-            traceback.print_exc()
-            # A model that will not load is a stopped container: `docker ps`
-            # shows the restart, `docker logs` shows why.
-            os._exit(1)
-
-    threading.Thread(target=run, daemon=True, name="julia-load").start()
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
-
-
-@app.get("/health")
-def health() -> Dict[str, str]:
-    """Liveness only. Readiness is /info: it answers once the model is loaded."""
-    return {"status": "ok"}
+app = stack_service.make_app(_load, "julia-load")
 
 
 @app.get("/info")
 def info():
     if model is None:
-        return error(503, "the model is still loading", "model_loading")
+        return stack_service.error(503, "the model is still loading", "model_loading")
     # TEI's /info shape. The router reads model_id from it and registers this
     # container under that one model, on the next 30s scan.
     return {
@@ -137,26 +106,26 @@ def info():
 @app.post("/v1/predict")
 def predict(body: Dict[str, Any]):
     if model is None:
-        return error(503, "the model is still loading", "model_loading")
-    req_model = body.get("model")
-    if req_model is not None and req_model != SERVED_ID:
-        return error(404, "No backend serves model '%s'." % req_model, "model_not_found")
+        return stack_service.error(503, "the model is still loading", "model_loading")
+    err = stack_service.check_model_match(body, SERVED_ID)
+    if err is not None:
+        return err
     state = body.get("state")
     if not isinstance(state, str) or not state:
-        return error(
+        return stack_service.error(
             400,
             "'state' (non-empty text) is required; Julia-1 is text-only.",
             "invalid_request_error",
         )
     questions = body.get("questions")
     if not isinstance(questions, dict) or not questions:
-        return error(
+        return stack_service.error(
             400,
             "'questions' (a non-empty object) is required.",
             "invalid_request_error",
         )
     if len(questions) > MAX_QUESTIONS:
-        return error(
+        return stack_service.error(
             413,
             "At most %d questions per request, got %d." % (MAX_QUESTIONS, len(questions)),
             "invalid_request_error",
@@ -165,5 +134,5 @@ def predict(body: Dict[str, Any]):
         with MODEL_LOCK:
             answers = model.predict(state=state, questions=questions)["answers"]
     except (ValueError, KeyError, TypeError, RuntimeError, OSError) as exc:
-        return error(400, str(exc), "invalid_request_error")
+        return stack_service.error(400, str(exc), "invalid_request_error")
     return {"object": "predict", "model": SERVED_ID, "answers": answers}
