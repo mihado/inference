@@ -19,7 +19,7 @@
 import { createServer, request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
 
-import { accessLine, addBackend, backendName, eligibleBackends, infoMaxClientBatchSize, infoPaths, minClientBatchSize, modelAdvertises, openAiModelIds, pickBackend, recordStat, setBackendPaths, summarizeStats, teiModelId } from "./backends.mjs";
+import { accessLine, addBackend, backendName, eligibleBackends, infoMaxClientBatchSize, infoPaths, minClientBatchSize, modelAdvertises, openAiModelIds, pickBackend, recordStat, rerankDocumentCount, setBackendPaths, summarizeStats, teiModelId } from "./backends.mjs";
 
 const PORT = Number(process.env.PORT ?? 80);
 const BACKENDS = (process.env.BACKENDS ?? "")
@@ -302,7 +302,8 @@ async function handle(request, response) {
       object: "list",
       // Additive fields: a client that reads only `id` is unaffected. The
       // bound is the strictest replica's, so a client chunks safely without
-      // reading a container command (docs/client-batch-limits.md).
+      // reading a container command. See docs/operations.md,
+      // "Client batch bounds".
       data: [...modelBackend.keys()].map((id) => {
         const bound = minClientBatchSize(modelBackend.get(id), backendBatch);
         const entry = { id, object: "model", owned_by: "local" };
@@ -352,6 +353,24 @@ async function handle(request, response) {
     if (backend === undefined) {
       log(model, "-", 404);
       return sendError(response, 404, `No backend serves model '${model}'.`, "model_not_found");
+    }
+    // Fail fast on an over-bound request instead of letting the backend
+    // answer 400 with its own wording. The bound is the one advertised above,
+    // so the error teaches the client the same number /v1/models does.
+    if (path === "/rerank" || path === "/v1/rerank") {
+      const bound = minClientBatchSize(modelBackend.get(model), backendBatch);
+      const count = rerankDocumentCount(body);
+      if (bound !== null && count !== null && count > bound) {
+        log(model, backend, 413);
+        return sendJson(response, 413, {
+          error: {
+            message: `This model accepts at most ${bound} documents per request, got ${count}.`,
+            type: "invalid_request_error",
+            code: "batch_too_large",
+            max_client_batch_size: bound,
+          },
+        });
+      }
     }
     const upstream = backendRequest(path, body);
     const { status, ms } = await proxy(response, backend, upstream.path, upstream.body);

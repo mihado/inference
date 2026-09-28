@@ -146,6 +146,33 @@ async function post(path, body, raw) {
   return { status: response.status, body: await response.json() };
 }
 
+test("an over-bound rerank is refused with the advertised number", async () => {
+  // test-paths advertises 32 (the stricter of 64 and 32).
+  const texts = Array.from({ length: 33 }, (_, i) => `d${i}`);
+  const { status, body } = await post("/rerank", { model: "test-paths", query: "q", texts });
+  assert.equal(status, 413);
+  assert.equal(body.error.code, "batch_too_large");
+  assert.equal(body.error.max_client_batch_size, 32);
+  // At the bound it still routes, and both field names are counted.
+  const at = await post("/rerank", { model: "test-paths", query: "q", texts: texts.slice(0, 32) });
+  assert.equal(at.status, 200);
+  const viaDocuments = await post("/v1/rerank", {
+    model: "test-paths",
+    query: "q",
+    documents: texts.slice(0, 33),
+  });
+  assert.equal(viaDocuments.status, 413);
+});
+
+test("a model with no advertised bound is never refused", async () => {
+  // test-rerank reports no max_client_batch_size, so a batch past any bound
+  // still routes. Kept small: the harness sets MAX_BODY_BYTES=1024, and a body
+  // over that answers 413 for a different reason.
+  const texts = Array.from({ length: 100 }, () => "d");
+  const { status } = await post("/rerank", { model: "test-rerank", query: "q", texts });
+  assert.equal(status, 200);
+});
+
 test("GET /v1/models is the union of both catalogue shapes", async () => {
   const response = await fetch(`${routerBase}/v1/models`);
   assert.equal(response.status, 200);

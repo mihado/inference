@@ -16,6 +16,7 @@ import {
   p50,
   pickBackend,
   recordStat,
+  rerankDocumentCount,
   setBackendPaths,
   summarizeStats,
   teiModelId,
@@ -104,6 +105,16 @@ test("minClientBatchSize is the strictest replica, null when none report", () =>
   assert.equal(minClientBatchSize(["http://c:80"], byBase), null);
   assert.equal(minClientBatchSize(undefined, byBase), null);
   assert.equal(minClientBatchSize([], byBase), null);
+});
+
+test("rerankDocumentCount reads either field name, else null", () => {
+  assert.equal(rerankDocumentCount({ texts: ["a", "b"] }), 2);
+  assert.equal(rerankDocumentCount({ documents: ["a"] }), 1);
+  assert.equal(rerankDocumentCount({ texts: ["a"], documents: ["a", "b"] }), 1);
+  assert.equal(rerankDocumentCount({ texts: [] }), 0);
+  assert.equal(rerankDocumentCount({ texts: "a" }), null);
+  assert.equal(rerankDocumentCount({}), null);
+  assert.equal(rerankDocumentCount(null), null);
 });
 
 test("setBackendPaths replaces per backend, and empty removes", () => {

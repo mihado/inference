@@ -84,6 +84,14 @@ export function infoMaxClientBatchSize(info) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 }
 
+/** The number of documents a body asks a reranker to score, or null when the
+ * shape carries no document list. `texts` and `documents` are the two names
+ * the same field travels under (TEI and Cohere). */
+export function rerankDocumentCount(body) {
+  const list = body?.texts ?? body?.documents;
+  return Array.isArray(list) ? list.length : null;
+}
+
 /** The smallest bound across a model's backends — a client must respect the
  * strictest replica — or null when no backend reports one. */
 export function minClientBatchSize(urls, boundsByBase) {

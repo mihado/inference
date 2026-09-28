@@ -75,7 +75,7 @@ curl -s localhost:8100/v1/models | jq '.data[] | select(.id | test("reranker"))'
 # { "id": "Alibaba-NLP/gte-reranker-modernbert-base", "max_client_batch_size": 64, ... }
 ```
 
-The field is absent when a backend reports no bound (vLLM, ollama). Design note: [client-batch-limits.md](client-batch-limits.md).
+The field is absent when a backend reports no bound (vLLM, ollama). A `/rerank` request past the advertised bound is refused by the router with 413 `batch_too_large` and the same number in the error body, so an over-batching client fails fast with the number it should chunk to instead of the backend's own 400. Raise the limit in the compose command (`--max-client-batch-size`), recreate, and the new value appears on the next catalogue scan (within 30s, no router restart).
 
 ## Gotchas
 
@@ -84,7 +84,7 @@ The field is absent when a backend reports no bound (vLLM, ollama). Design note:
   - The limit `--max-batch-tokens` is 8192. So the queue can overflow.
   - Lower `--max-client-batch-size`, or raise `--max-batch-tokens`.
 - `--max-batch-tokens` must be the largest value that the model accepts. TEI cannot calculate this value alone.
-- `--max-client-batch-size` bounds one *request*; a client that needs more sends several. The router should advertise the bound per model so clients know it — see [client-batch-limits.md](client-batch-limits.md).
+- `--max-client-batch-size` bounds one *request*; a client that needs more sends several. The advertised `max_client_batch_size` in `/v1/models` carries that number, so a client chunks to it instead of hardcoding another provider's value.
 - `--served-model-name` sets the model name for the OpenAI surface. If you do not set it, the name is the Hugging Face id.
 - A Matryoshka model can serve more dimensions than you index.
   - `voyage-4-nano` serves 2048 dimensions.
