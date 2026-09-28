@@ -50,7 +50,7 @@ test.before(async () => {
   stubA = stub("a", () => ({ model_id: "test-rerank" }));
   stubB = stub("b", () => ({ object: "list", data: [{ id: "test-embed" }, { id: "test-rerank" }] }));
   // A backend advertising a path the router never hardcoded, with junk the
-  // router must ignore (docs/path-discovery.md).
+  // router must ignore (see README.md "Router").
   stubC = stub("c", () => ({ model_id: "test-paths", paths: ["/v1/novel", "relative", 42, "/v1/novel"] }));
   const portA = await listen(stubA.server);
   const portB = await listen(stubB.server);

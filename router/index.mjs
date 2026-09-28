@@ -141,7 +141,7 @@ async function resolveBackend(model) {
 }
 
 /** The static POST paths that carry a model in their JSON body. Backends may
- * advertise more in /info (`paths`, docs/path-discovery.md); the union is
+ * advertise more in /info (`paths`, see README.md "Router"); the union is
  * what routes. */
 const POST_PATHS = new Set(["/v1/embeddings", "/rerank", "/v1/rerank", "/v1/decisions", "/v1/systemone", "/v1/predict", "/api/evaluate"]);
 
