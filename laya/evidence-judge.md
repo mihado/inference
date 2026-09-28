@@ -83,6 +83,21 @@ curl -s localhost:8100/rerank -H 'content-type: application/json' -d '{
   own labeled pairs before gating on a probability (the card moves mean ECE 0.466 → 0.081).
 - The `typed-decisions` family is English; other languages need `multilingual`.
 
+## Bring-up result (2026-09-28, box)
+
+- Serving `convaiinnovations/laya/typed-decisions` on both cards
+  (`LAYA_SUBFOLDER=typed-decisions`, `make up-laya CONCURRENCY=2`).
+- Step 2 **FAILED the gate**: the doc's own probe pair gives noul 0.32
+  (yes) vs 0.42 (no) — mid-range and flipped. The `choice` workaround
+  also fails: P(yes) 0.61 (yes) vs 0.71 (no), wrong direction.
+- Step 3 found a crash first: `_scores` called `.numpy()` on a CUDA
+  tensor, so every GPU `/rerank` answered 500 (fixed; never exercised
+  before because smoke covers Laya via `/v1/decisions`). After the fix
+  the pair orders correctly (0.509 vs 0.431).
+- Verdict: **do not point the product at it yet.** Next is product-side:
+  temperature refit on our labeled pairs, then the 100-pair benchmark
+  against `jev-latest` (After bring-up, below).
+
 ## After bring-up
 
 Re-run the evidence benchmark — the same 100 query-window-vs-head pairs the `jev-latest`
