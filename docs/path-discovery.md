@@ -1,6 +1,7 @@
 # Spec: router discovers POST paths via `/info`
 
-Status: proposal. Implements improvement 2 (path allowlist follow-up).
+Status: implemented (router unions `/info` `paths` with its static set; all six
+Python services advertise).
 
 ## Problem
 
