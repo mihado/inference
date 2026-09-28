@@ -129,6 +129,18 @@ test("POST /api/evaluate forwards untouched", async () => {
   assert.deepEqual(body.body, payload);
 });
 
+test("POST /v1/predict forwards untouched", async () => {
+  const payload = {
+    model: "test-rerank",
+    state: "I was charged twice.",
+    questions: { team: { type: "noul", instructions: "t" } },
+  };
+  const { status, body } = await post("/v1/predict", payload);
+  assert.equal(status, 200);
+  assert.equal(body.path, "/v1/predict");
+  assert.deepEqual(body.body, payload);
+});
+
 test("POST /v1/systemone forwards untouched", async () => {
   const payload = {
     model: "test-rerank",
