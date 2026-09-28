@@ -1,8 +1,8 @@
 # Advertise each backend's client batch bound
 
-Status: instruction. Who: the GPU machine. Why it exists: a client cannot
-discover how many documents one rerank request may carry, so it guessed — and
-guessed another provider's number.
+Status: implemented. Each `/v1/models` entry carries the backend's
+`max_client_batch_size` when the backend reports one; with several replicas the
+router advertises the strictest. The client side is `mihado/base-stack#193`.
 
 ## The failure this fixes
 
@@ -66,6 +66,17 @@ Additive: existing clients read `data[].id` and ignore extra fields (the lab's
 - `docs/operations.md`: document the advertised field next to the
   `--max-client-batch-size` / `--max-batch-tokens` tuning note it already has.
 
+## What shipped
+
+- `router/backends.mjs`: `infoMaxClientBatchSize` (parse) and
+  `minClientBatchSize` (strictest replica), pure and covered in
+  `backends.test.mjs`.
+- `router/index.mjs`: `/v1/models` adds the field per model; the scan collects
+  bounds alongside the advertised paths. Backends reporting none are omitted
+  rather than advertised as unlimited.
+- `docs/operations.md`: a "Client batch bounds" section with the curl.
+- `router/dispatch.test.mjs`: two replicas reporting 64 and 32 advertise 32.
+
 ## Acceptance
 
 ```sh
@@ -73,8 +84,7 @@ curl -s localhost:8100/v1/models | jq '.data[] | select(.id | test("reranker"))'
 # -> { "id": "Alibaba-NLP/gte-reranker-modernbert-base", ..., "max_client_batch_size": 64 }
 
 curl -s localhost:8021/info          # a raw backend still answers as before
-pnpm test                            # router/backends.test.mjs, router/dispatch.test.mjs
+make test                            # router + py-common unit tests
 ```
 
-Then the lab's provider can stop hardcoding 64 and read the field per model — a
-follow-up on our side, no further router change needed.
+The lab's provider can now stop hardcoding 64 and read the field per model.

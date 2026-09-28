@@ -8,7 +8,9 @@ import {
   addBackend,
   backendName,
   eligibleBackends,
+  infoMaxClientBatchSize,
   infoPaths,
+  minClientBatchSize,
   modelAdvertises,
   openAiModelIds,
   p50,
@@ -77,6 +79,31 @@ test("infoPaths keeps absolute paths, drops junk, dedupes", () => {
   assert.deepEqual(infoPaths({ model_id: "m", paths: "nope" }), []);
   assert.deepEqual(infoPaths({ model_id: "m" }), []);
   assert.deepEqual(infoPaths(null), []);
+});
+
+test("infoMaxClientBatchSize reads the reported bound, else null", () => {
+  assert.equal(infoMaxClientBatchSize({ max_client_batch_size: 64 }), 64);
+  assert.equal(infoMaxClientBatchSize({ max_client_batch_size: 0 }), null);
+  assert.equal(infoMaxClientBatchSize({ max_client_batch_size: -1 }), null);
+  assert.equal(infoMaxClientBatchSize({ max_client_batch_size: "64" }), null);
+  assert.equal(infoMaxClientBatchSize({ max_client_batch_size: null }), null);
+  assert.equal(infoMaxClientBatchSize({ model_id: "m" }), null);
+  assert.equal(infoMaxClientBatchSize(null), null);
+});
+
+test("minClientBatchSize is the strictest replica, null when none report", () => {
+  const byBase = new Map([
+    ["http://a:80", 64],
+    ["http://b:80", 32],
+  ]);
+  // Two replicas of one model, different builds: the client must respect 32.
+  assert.equal(minClientBatchSize(["http://a:80", "http://b:80"], byBase), 32);
+  assert.equal(minClientBatchSize(["http://a:80"], byBase), 64);
+  // A backend that reports no bound does not raise the floor.
+  assert.equal(minClientBatchSize(["http://a:80", "http://c:80"], byBase), 64);
+  assert.equal(minClientBatchSize(["http://c:80"], byBase), null);
+  assert.equal(minClientBatchSize(undefined, byBase), null);
+  assert.equal(minClientBatchSize([], byBase), null);
 });
 
 test("setBackendPaths replaces per backend, and empty removes", () => {

@@ -80,9 +80,13 @@ test.before(async () => {
   stubB = stub("b", () => ({ object: "list", data: [{ id: "test-embed" }, { id: "test-rerank" }] }));
   // A backend advertising a path the router never hardcoded, with junk the
   // router must ignore (see README.md "Router").
-  stubC = stub("c", () => ({ model_id: "test-paths", paths: ["/v1/novel", "relative", 42, "/v1/novel"] }));
-  // Same model, older paths: the un-upgraded replica in a rollout.
-  stubD = stub("d", () => ({ model_id: "test-paths", paths: ["/v1/legacy"] }));
+  stubC = stub("c", () => ({
+    model_id: "test-paths",
+    paths: ["/v1/novel", "relative", 42, "/v1/novel"],
+    max_client_batch_size: 64,
+  }));
+  // Same model, older paths and a stricter batch: a mid-rollout replica.
+  stubD = stub("d", () => ({ model_id: "test-paths", paths: ["/v1/legacy"], max_client_batch_size: 32 }));
   flaky = flakyBackend(() => ({ model_id: "test-flaky" }));
   slow = stub("s", () => ({ model_id: "test-slow" }), 1000);
   const portA = await listen(stubA.server);
@@ -147,6 +151,15 @@ test("GET /v1/models is the union of both catalogue shapes", async () => {
   assert.equal(response.status, 200);
   const ids = (await response.json()).data.map((entry) => entry.id).sort();
   assert.deepEqual(ids, ["test-embed", "test-flaky", "test-paths", "test-rerank", "test-slow"]);
+});
+
+test("GET /v1/models advertises the strictest replica's client batch bound", async () => {
+  const data = (await (await fetch(`${routerBase}/v1/models`)).json()).data;
+  const entry = data.find((row) => row.id === "test-paths");
+  // c reports 64, d reports 32; a client must respect the stricter one.
+  assert.equal(entry.max_client_batch_size, 32);
+  // A backend that reports no bound leaves the field off entirely.
+  assert.equal("max_client_batch_size" in data.find((row) => row.id === "test-rerank"), false);
 });
 
 test("POST /rerank normalizes Cohere documents to TEI texts, keeping model", async () => {
