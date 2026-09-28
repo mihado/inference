@@ -18,7 +18,7 @@
 import { createServer, request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
 
-import { addBackend, backendName, openAiModelIds, pickBackend, teiModelId } from "./backends.mjs";
+import { accessLine, addBackend, backendName, openAiModelIds, pickBackend, teiModelId } from "./backends.mjs";
 
 const PORT = Number(process.env.PORT ?? 80);
 const BACKENDS = (process.env.BACKENDS ?? "")
@@ -161,8 +161,10 @@ async function readBody(request) {
   }
 }
 
-/** Proxies one request to a backend path, streaming the response back. */
+/** Proxies one request to a backend path, streams the response back, and
+ * answers the upstream status with the elapsed time for the access log. */
 async function proxy(response, backend, path, body) {
+  const started = Date.now();
   let upstream;
   try {
     upstream = await fetch(`${backend}${path}`, {
@@ -171,13 +173,15 @@ async function proxy(response, backend, path, body) {
       body: JSON.stringify(body),
     });
   } catch {
-    return sendError(response, 502, "The backend is unreachable.", "server_error");
+    sendError(response, 502, "The backend is unreachable.", "server_error");
+    return { status: 502, ms: Date.now() - started };
   }
   const text = await upstream.text();
   response.writeHead(upstream.status, {
     "content-type": upstream.headers.get("content-type") ?? "application/json",
   });
   response.end(text);
+  return { status: upstream.status, ms: Date.now() - started };
 }
 
 const server = createServer(async (request, response) => {
@@ -197,19 +201,32 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === "POST" && POST_PATHS.has(path)) {
+    const started = Date.now();
+    const log = (model, backend, status) =>
+      console.log(accessLine({ method: "POST", path, model, backend, status, ms: Date.now() - started }));
     const body = await readBody(request);
-    if (body === undefined) return sendError(response, 400, "Request body must be JSON.", "invalid_request_error");
-    if (body === null) return sendError(response, 400, "Request body is required.", "invalid_request_error");
+    if (body === undefined) {
+      log("-", "-", 400);
+      return sendError(response, 400, "Request body must be JSON.", "invalid_request_error");
+    }
+    if (body === null) {
+      log("-", "-", 400);
+      return sendError(response, 400, "Request body is required.", "invalid_request_error");
+    }
     const model = body.model ?? body.model_id;
     if (typeof model !== "string") {
+      log("-", "-", 400);
       return sendError(response, 400, "A model is required.", "invalid_request_error");
     }
     const backend = await resolveBackend(model);
     if (backend === undefined) {
+      log(model, "-", 404);
       return sendError(response, 404, `No backend serves model '${model}'.`, "model_not_found");
     }
     const upstream = backendRequest(path, body);
-    return proxy(response, backend, upstream.path, upstream.body);
+    const { status, ms } = await proxy(response, backend, upstream.path, upstream.body);
+    console.log(accessLine({ method: "POST", path, model, backend, status, ms }));
+    return;
   }
 
   return sendError(response, 404, "Not found.", "invalid_request_error");

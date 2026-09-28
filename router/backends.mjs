@@ -58,3 +58,13 @@ export function pickBackend(urls, turn) {
   if (urls === undefined || urls.length === 0) return undefined;
   return urls[turn % urls.length];
 }
+
+/** One access-log line per forwarded request. Pure, so it can be tested.
+///
+/// Bodies are never logged: states may be sensitive, and the catalogue fields
+/// are enough to debug rotation skew (TUNING.md, "One container, one entry").
+/// Newlines are stripped so a client-supplied model id cannot forge lines. */
+export function accessLine({ method, path, model, backend, status, ms }) {
+  const clean = (value) => String(value ?? "-").replace(/[\r\n]/g, "_");
+  return `router: ${clean(method)} ${clean(path)} model=${clean(model)} backend=${clean(backend)} status=${clean(status)} ${clean(ms)}ms`;
+}

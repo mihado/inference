@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  accessLine,
   addBackend,
   backendName,
   openAiModelIds,
@@ -58,6 +59,17 @@ test("pickBackend cycles in order, and answers undefined for an unknown model", 
   assert.equal(pickBackend(urls, 3), "http://b:80");
   assert.equal(pickBackend(undefined, 0), undefined);
   assert.equal(pickBackend([], 0), undefined);
+});
+
+test("accessLine fits one line and strips forged newlines", () => {
+  assert.equal(
+    accessLine({ method: "POST", path: "/rerank", model: "m", backend: "http://a:80", status: 200, ms: 42 }),
+    "router: POST /rerank model=m backend=http://a:80 status=200 42ms",
+  );
+  assert.equal(
+    accessLine({ method: "POST", path: "/rerank", model: "a\nrouter: forged", backend: "-", status: 404, ms: 3 }),
+    "router: POST /rerank model=a_router: forged backend=- status=404 3ms",
+  );
 });
 
 test("backendName prefers the compose service, then the container's own name", () => {
