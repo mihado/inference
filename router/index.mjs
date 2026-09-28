@@ -32,6 +32,12 @@ const PROBE_TIMEOUT_MS = 5_000;
 /** Docker socket for label discovery of ad-hoc slots; absent -> static only. */
 const DOCKER_SOCK = process.env.DOCKER_SOCK ?? "/var/run/docker.sock";
 const BACKEND_LABEL = process.env.BACKEND_LABEL ?? "tei.backend";
+/** Largest request body accepted; larger answers 413 before JSON parsing. */
+const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES ?? 25_000_000);
+/** Upstream inference budget per request; exceeded answers 502. */
+const UPSTREAM_TIMEOUT_MS = Number(process.env.UPSTREAM_TIMEOUT_MS ?? 300_000);
+/** Docker socket budget; exceeded fails the catalogue probe. */
+const DOCKER_TIMEOUT_MS = Number(process.env.DOCKER_TIMEOUT_MS ?? 10_000);
 
 /** model id -> every backend base url that serves it, in discovery order. A
  * model served by two GPUs has two entries, and the router takes turns. */
@@ -45,24 +51,33 @@ const turns = new Map();
 let lastScan = 0;
 let scanning = null;
 
-/** One Docker API GET over the socket; rejects on any failure. */
+/** One Docker API GET over the socket; rejects on any failure or timeout, so
+ * a stalled daemon fails the catalogue probe instead of wedging the router. */
 function dockerJson(path) {
   return new Promise((resolve, reject) => {
+    let done = false;
+    const finish = (fn, value) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      fn(value);
+    };
     const req = httpRequest({ socketPath: DOCKER_SOCK, path, method: "GET" }, (res) => {
       let data = "";
       res.on("data", (chunk) => {
         data += chunk;
       });
       res.on("end", () => {
-        if (res.statusCode !== 200) return reject(new Error(`docker ${res.statusCode}`));
+        if (res.statusCode !== 200) return finish(reject, new Error(`docker ${res.statusCode}`));
         try {
-          resolve(JSON.parse(data));
+          finish(resolve, JSON.parse(data));
         } catch (error) {
-          reject(error);
+          finish(reject, error);
         }
       });
     });
-    req.on("error", reject);
+    const timer = setTimeout(() => req.destroy(new Error(`docker ${path} timed out`)), DOCKER_TIMEOUT_MS);
+    req.on("error", (error) => finish(reject, error));
     req.end();
   });
 }
@@ -149,10 +164,15 @@ async function resolveBackend(model, path, isStatic) {
 const POST_PATHS = new Set(["/v1/embeddings", "/rerank", "/v1/rerank", "/v1/decisions", "/v1/systemone", "/v1/predict", "/api/evaluate"]);
 
 /** Maps a public path to the backend path and body: rerank accepts Cohere's
- * `documents` for TEI's `texts`; everything else forwards untouched. */
+ * `documents` for TEI's `texts`, and keeps `model` so a backend's
+ * model-mismatch 404 stays meaningful instead of vacuous (TEI ignores the
+ * extra field). Everything else forwards untouched. */
 function backendRequest(path, body) {
   if (path === "/rerank" || path === "/v1/rerank") {
-    return { path: "/rerank", body: { query: body.query, texts: body.texts ?? body.documents } };
+    return {
+      path: "/rerank",
+      body: { query: body.query, texts: body.texts ?? body.documents, model: body.model ?? body.model_id },
+    };
   }
   return { path, body };
 }
@@ -168,8 +188,25 @@ function sendError(response, status, message, code) {
 }
 
 async function readBody(request) {
+  // Fast path: a declared length over the cap never needs reading.
+  if (Number(request.headers["content-length"]) > MAX_BODY_BYTES) {
+    request.resume(); // drain: destroying the socket would kill the 413 too
+    return "too-large";
+  }
   const chunks = [];
-  for await (const chunk of request) chunks.push(chunk);
+  let size = 0;
+  try {
+    for await (const chunk of request) {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        request.resume();
+        return "too-large";
+      }
+      chunks.push(chunk);
+    }
+  } catch {
+    return "aborted"; // client left mid-body; nothing to answer on a dead socket
+  }
   if (chunks.length === 0) return null;
   try {
     return JSON.parse(Buffer.concat(chunks).toString("utf8"));
@@ -185,16 +222,24 @@ async function readBody(request) {
  * exit (Node would otherwise turn the rejection into a process crash). */
 async function proxy(response, backend, path, body) {
   const started = Date.now();
+  const timeout = AbortSignal.timeout(UPSTREAM_TIMEOUT_MS);
   let upstream;
   try {
     upstream = await fetch(`${backend}${path}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
+      signal: timeout,
     });
   } catch {
-    if (!response.headersSent) sendError(response, 502, "The backend is unreachable.", "server_error");
-    else response.destroy();
+    if (!response.headersSent) {
+      sendError(
+        response,
+        502,
+        timeout.aborted ? "The backend timed out." : "The backend is unreachable.",
+        "server_error",
+      );
+    } else response.destroy();
     return { status: 502, ms: Date.now() - started };
   }
   let text;
@@ -248,6 +293,11 @@ async function handle(request, response) {
     }
     const log = (model, backend, status) =>
       console.log(accessLine({ method: "POST", path, model, backend, status, ms: Date.now() - started }));
+    if (body === "aborted") return;
+    if (body === "too-large") {
+      log("-", "-", 413);
+      return sendError(response, 413, "Request body too large.", "invalid_request_error");
+    }
     if (body === undefined) {
       log("-", "-", 400);
       return sendError(response, 400, "Request body must be JSON.", "invalid_request_error");

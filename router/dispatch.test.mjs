@@ -10,8 +10,9 @@ import { test } from "node:test";
 
 const DIR = new URL(".", import.meta.url).pathname;
 
-/** A stub backend: GET serves the catalogue shape, POST echoes path + body. */
-function stub(name, catalogue) {
+/** A stub backend: GET serves the catalogue shape, POST echoes path + body,
+ * optionally after a delay (to exercise the upstream timeout). */
+function stub(name, catalogue, delayMs = 0) {
   const server = createServer((request, response) => {
     if (request.method === "GET") {
       response.writeHead(200, { "content-type": "application/json" });
@@ -21,8 +22,13 @@ function stub(name, catalogue) {
     let raw = "";
     request.on("data", (chunk) => (raw += chunk));
     request.on("end", () => {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ stub: name, path: request.url, body: JSON.parse(raw) }));
+      setTimeout(
+        () => {
+          response.writeHead(200, { "content-type": "application/json" });
+          response.end(JSON.stringify({ stub: name, path: request.url, body: JSON.parse(raw) }));
+        },
+        delayMs,
+      );
     });
   });
   return { server };
@@ -67,6 +73,7 @@ let stubB;
 let stubC;
 let stubD;
 let flaky;
+let slow;
 
 test.before(async () => {
   stubA = stub("a", () => ({ model_id: "test-rerank" }));
@@ -77,11 +84,13 @@ test.before(async () => {
   // Same model, older paths: the un-upgraded replica in a rollout.
   stubD = stub("d", () => ({ model_id: "test-paths", paths: ["/v1/legacy"] }));
   flaky = flakyBackend(() => ({ model_id: "test-flaky" }));
+  slow = stub("s", () => ({ model_id: "test-slow" }), 1000);
   const portA = await listen(stubA.server);
   const portB = await listen(stubB.server);
   const portC = await listen(stubC.server);
   const portD = await listen(stubD.server);
   const portF = await listen(flaky.server);
+  const portS = await listen(slow.server);
 
   const routerPort = await freePort();
   child = spawn(process.execPath, ["index.mjs"], {
@@ -89,9 +98,11 @@ test.before(async () => {
     env: {
       ...process.env,
       PORT: String(routerPort),
-      BACKENDS: `http://127.0.0.1:${portA},http://127.0.0.1:${portB},http://127.0.0.1:${portC},http://127.0.0.1:${portD},http://127.0.0.1:${portF}`,
+      BACKENDS: `http://127.0.0.1:${portA},http://127.0.0.1:${portB},http://127.0.0.1:${portC},http://127.0.0.1:${portD},http://127.0.0.1:${portF},http://127.0.0.1:${portS}`,
       DOCKER_SOCK: "/nonexistent-router-test.sock",
       MODEL_TTL_MS: "60000",
+      MAX_BODY_BYTES: "1024",
+      UPSTREAM_TIMEOUT_MS: "300",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -119,6 +130,7 @@ test.after(async () => {
   stubC.server.close();
   stubD.server.close();
   flaky.server.close();
+  slow.server.close();
 });
 
 async function post(path, body, raw) {
@@ -134,21 +146,21 @@ test("GET /v1/models is the union of both catalogue shapes", async () => {
   const response = await fetch(`${routerBase}/v1/models`);
   assert.equal(response.status, 200);
   const ids = (await response.json()).data.map((entry) => entry.id).sort();
-  assert.deepEqual(ids, ["test-embed", "test-flaky", "test-paths", "test-rerank"]);
+  assert.deepEqual(ids, ["test-embed", "test-flaky", "test-paths", "test-rerank", "test-slow"]);
 });
 
-test("POST /rerank normalizes Cohere documents to TEI texts", async () => {
+test("POST /rerank normalizes Cohere documents to TEI texts, keeping model", async () => {
   const { status, body } = await post("/rerank", { model: "test-rerank", query: "q", documents: ["d1"] });
   assert.equal(status, 200);
   assert.equal(body.path, "/rerank");
-  assert.deepEqual(body.body, { query: "q", texts: ["d1"] });
+  assert.deepEqual(body.body, { query: "q", texts: ["d1"], model: "test-rerank" });
 });
 
 test("POST /v1/rerank keeps texts and still lands on TEI /rerank", async () => {
   const { status, body } = await post("/v1/rerank", { model: "test-rerank", query: "q", texts: ["d1"] });
   assert.equal(status, 200);
   assert.equal(body.path, "/rerank");
-  assert.deepEqual(body.body, { query: "q", texts: ["d1"] });
+  assert.deepEqual(body.body, { query: "q", texts: ["d1"], model: "test-rerank" });
 });
 
 test("POST /v1/decisions forwards untouched", async () => {
@@ -255,6 +267,17 @@ test("bad input answers 400, unknown model 404, unknown path 404", async () => {
   assert.equal((await post("/rerank", {})).status, 400);
   assert.equal((await post("/rerank", { model: "nope", query: "q", texts: [] })).status, 404);
   assert.equal((await fetch(`${routerBase}/nope`)).status, 404);
+});
+
+test("an oversized body answers 413 without touching a backend", async () => {
+  const { status } = await post("/rerank", { model: "test-rerank", query: "q", texts: ["d".repeat(2048)] });
+  assert.equal(status, 413);
+  assert.equal((await fetch(`${routerBase}/health`)).status, 200);
+});
+
+test("an upstream slower than the budget becomes a 502, not a hang", async () => {
+  const { status } = await post("/rerank", { model: "test-slow", query: "q", texts: ["d"] });
+  assert.equal(status, 502);
 });
 
 test("a backend that drops mid-response becomes a 502, not an exit", async () => {
