@@ -158,6 +158,13 @@ export function summarizeStats(models) {
 /// are enough to debug rotation skew (TUNING.md, "One container, one entry").
 /// Newlines are stripped so a client-supplied model id cannot forge lines. */
 export function accessLine({ method, path, model, backend, status, ms }) {
-  const clean = (value) => String(value ?? "-").replace(/[\r\n]/g, "_");
+  // Strip ANSI escape sequences whole, then blank every remaining control
+  // character (tabs included: they forge field boundaries). Spaces and
+  // unicode survive; a client-supplied model id cannot forge lines or
+  // inject terminal control sequences into `docker logs`.
+  const clean = (value) =>
+    String(value ?? "-")
+      .replace(/\x1b\[[0-9;]*[A-Za-z]/g, "")
+      .replace(/[^\x20-\x7e]/g, (ch) => (ch > "\x7f" ? ch : "_"));
   return `router: ${clean(method)} ${clean(path)} model=${clean(model)} backend=${clean(backend)} status=${clean(status)} ${clean(ms)}ms`;
 }

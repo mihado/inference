@@ -124,6 +124,21 @@ test("accessLine fits one line and strips forged newlines", () => {
   );
 });
 
+test("accessLine strips ANSI escapes and tabs, keeps spaces and unicode", () => {
+  assert.equal(
+    accessLine({ method: "POST", path: "/r", model: "a\x1b[31mRED\x1b[0m", backend: "-", status: 200, ms: 1 }),
+    "router: POST /r model=aRED backend=- status=200 1ms",
+  );
+  assert.equal(
+    accessLine({ method: "POST", path: "/r", model: "m\tmodel=x", backend: "-", status: 200, ms: 1 }),
+    "router: POST /r model=m_model=x backend=- status=200 1ms",
+  );
+  assert.equal(
+    accessLine({ method: "POST", path: "/r", model: "my model héllo", backend: "-", status: 200, ms: 1 }),
+    "router: POST /r model=my model héllo backend=- status=200 1ms",
+  );
+});
+
 test("backendName prefers the compose service, then the container's own name", () => {
   assert.equal(backendName(VOYAGE), "voyage-embed");
   assert.equal(backendName(VOYAGE_B), "voyage-embed-b");
