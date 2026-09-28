@@ -54,7 +54,7 @@ Five services start by default: `router`, plus a pair for each of the two models
 
 Port bands, so each kind of server lives in its own mental space: 8001–8004 embeds, 8021–8022 rerankers, 8041 upward Python services, 8080–8099 optionals and ad-hoc slots (pinned top-down from 8099, ad-hoc bottom-up from 8080), 8100 router.
 
-Each `up-*` starts the default stack as well, so one command always leaves a router in front of what it started. Each `down-*` removes only its own profile's services — the router and the default models keep running. `GPU=` moves a profile's services to another card (`make up-laya GPU=1`); empty means each profile's default. The compose command underneath, for the rerankers profile:
+Each `up-*` starts the default stack as well, so one command always leaves a router in front of what it started. Each `down-*` removes only its own profile's services — the router and the default models keep running. `make up-all` does not fit this box: every profile defaults to GPU 0, against `voyage-embed`'s half-card reservation — bring profiles up selectively instead. `GPU=` moves a profile's services to another card (`make up-laya GPU=1`); empty means each profile's default. The compose command underneath, for the rerankers profile:
 
 ```sh
 docker compose -f compose.yml -f compose.rerankers.yml \
@@ -87,7 +87,7 @@ make models
 make throughput
 ```
 
-One port must be open to the network: the router on 8100. Clients use the router only. They do not use a server port.
+One port must be open to the network: the router on 8100. Clients use the router only. They do not use a server port. Backend ports bind to localhost, so off-box traffic cannot bypass the router; direct ports remain for debugging from the box itself.
 
 ## Router
 

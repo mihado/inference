@@ -101,7 +101,7 @@ services:
   reranker:
     <<: *reranker
     ports:
-      - "${PORT_RERANKER:-8021}:80"
+      - "127.0.0.1:${PORT_RERANKER:-8021}:80"
     deploy:
       resources:
         reservations:
@@ -113,7 +113,7 @@ services:
   reranker-b:
     <<: *reranker
     ports:
-      - "${PORT_RERANKER_B:-8022}:80"
+      - "127.0.0.1:${PORT_RERANKER_B:-8022}:80"
     deploy:
       resources:
         reservations:
@@ -125,7 +125,7 @@ services:
   voyage-embed:
     <<: *voyage
     ports:
-      - "${PORT_VOYAGE_EMBED:-8001}:80"
+      - "127.0.0.1:${PORT_VOYAGE_EMBED:-8001}:80"
     deploy:
       resources:
         reservations:
@@ -137,7 +137,7 @@ services:
   voyage-embed-b:
     <<: *voyage
     ports:
-      - "${PORT_VOYAGE_EMBED_B:-8002}:80"
+      - "127.0.0.1:${PORT_VOYAGE_EMBED_B:-8002}:80"
     deploy:
       resources:
         reservations:

@@ -40,7 +40,7 @@ services:
       - --max-batch-tokens
       - "8192"
     ports:
-      - "${PORT_BGE_RERANKER:-8099}:80"
+      - "127.0.0.1:${PORT_BGE_RERANKER:-8099}:80"
     deploy:
       resources:
         reservations:
@@ -62,7 +62,7 @@ services:
       - --max-batch-tokens
       - "8192"
     ports:
-      - "${PORT_MS_MARCO:-8098}:80"
+      - "127.0.0.1:${PORT_MS_MARCO:-8098}:80"
     deploy:
       resources:
         reservations:
@@ -84,7 +84,7 @@ services:
       - --max-batch-tokens
       - "8192"
     ports:
-      - "${PORT_GTE_MULTILINGUAL:-8097}:80"
+      - "127.0.0.1:${PORT_GTE_MULTILINGUAL:-8097}:80"
     deploy:
       resources:
         reservations:
@@ -106,7 +106,7 @@ services:
       - --max-batch-tokens
       - "8192"
     ports:
-      - "${PORT_GRANITE_RERANKER:-8096}:80"
+      - "127.0.0.1:${PORT_GRANITE_RERANKER:-8096}:80"
     deploy:
       resources:
         reservations:

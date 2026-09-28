@@ -50,7 +50,7 @@ docker run -d --name "$NAME" \
   --label tei.backend=1 \
   --restart unless-stopped \
   --gpus "device=$GPU" \
-  -p "${PORT}:80" \
+  -p "127.0.0.1:${PORT}:80" \
   -v "${HF_CACHE}:/data" \
   "ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG}" \
   --model-id "$MODEL" --dtype float16 --max-client-batch-size 128 --max-batch-tokens 32768

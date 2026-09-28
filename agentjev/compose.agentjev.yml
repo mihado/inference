@@ -40,7 +40,7 @@ services:
     <<: *agentjev
     profiles: ["agentjev"]
     ports:
-      - "${PORT_AGENTJEV:-8045}:80"
+      - "127.0.0.1:${PORT_AGENTJEV:-8045}:80"
     deploy:
       resources:
         reservations:
@@ -53,7 +53,7 @@ services:
     <<: *agentjev
     profiles: ["agentjev-b"]
     ports:
-      - "${PORT_AGENTJEV_B:-8046}:80"
+      - "127.0.0.1:${PORT_AGENTJEV_B:-8046}:80"
     deploy:
       resources:
         reservations:
