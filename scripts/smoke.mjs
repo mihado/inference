@@ -13,36 +13,39 @@
 //                      request compiles Triton kernels, so it can take minutes)
 //   SMOKE_WAIT_MS      how long to wait for the expected models to appear in
 //                      /v1/models (default 120000; the router rescans every 30s)
-//   SMOKE_VOYAGE       expected embedder (default voyageai/voyage-4-nano)
-//   SMOKE_RERANKER     expected reranker (default Alibaba-NLP/gte-reranker-modernbert-base)
+//   SMOKE_VOYAGE       expected embedder (default: .env MODEL_VOYAGE_EMBED,
+//                      else voyageai/voyage-4-nano)
+//   SMOKE_RERANKER     expected reranker (default: .env MODEL_RERANKER,
+//                      else Alibaba-NLP/gte-reranker-modernbert-base)
 //
+// Every other id below resolves the same way: an explicit environment value
+// wins, then the matching `.env` key (the same override compose honours), then
+// the compose default. A box that serves custom models therefore smokes those
+// models instead of false-failing on absent defaults.
 // Exit 0 when every check passes or skips; 1 on the first failure path with
 // any failure. Optional profiles that are not advertised are SKIP, not FAIL.
-// Dependency-free (global fetch only), like router/index.mjs.
+// Dependency-free (global fetch + node:fs only), like router/index.mjs.
+
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { loadDotEnv, resolveIds } from "./smoke-config.mjs";
 
 const ROUTER = (process.env.ROUTER_URL ?? "http://localhost:8100").replace(/\/+$/, "");
 const TIMEOUT_MS = Number(process.env.SMOKE_TIMEOUT_MS ?? 180_000);
 const WAIT_MS = Number(process.env.SMOKE_WAIT_MS ?? 120_000);
-const VOYAGE = process.env.SMOKE_VOYAGE ?? "voyageai/voyage-4-nano";
-const RERANKER = process.env.SMOKE_RERANKER ?? "Alibaba-NLP/gte-reranker-modernbert-base";
 
-// Optional profiles: tested when advertised, skipped when absent.
-const EMBED_KNOWN = [VOYAGE, "Qwen/Qwen3-Embedding-0.6B", "jinaai/jina-embeddings-v5-omni-small"];
-const RERANK_KNOWN = [
-  RERANKER,
-  "BAAI/bge-reranker-v2-m3",
-  "cross-encoder/ms-marco-MiniLM-L6-v2",
-  "Alibaba-NLP/gte-multilingual-reranker-base",
-  "ibm-granite/granite-embedding-reranker-english-r2",
-  "jinaai/jina-reranker-v3.5",
-  "aimeigaoshou/agent-jev",
-];
-// Prefix matches because a checkpoint variant changes the served id
-// (laya/README.md: checkpoints; omnijev/README.md: OMNIJEV_SIZE).
-const LAYA_PREFIX = "convaiinnovations/laya";
-const OMNI_PREFIX = "tinnel123/OmniJev";
-const JULIA_ID = "SupersonicLabs/Julia-1";
-const AGENTJEV_ID = "aimeigaoshou/agent-jev";
+// Explicit SMOKE_* wins; everything else resolves from the shared table
+// (explicit env, then this repo's `.env`, then the compose default).
+const SHARED = resolveIds(
+  process.env,
+  loadDotEnv(join(dirname(fileURLToPath(import.meta.url)), "..", ".env")),
+);
+const VOYAGE = process.env.SMOKE_VOYAGE ?? SHARED.VOYAGE;
+const RERANKER = process.env.SMOKE_RERANKER ?? SHARED.RERANKER;
+const EMBED_KNOWN = [VOYAGE, ...SHARED.EMBED_KNOWN.slice(1)];
+const RERANK_KNOWN = [RERANKER, ...SHARED.RERANK_KNOWN.slice(1)];
+const { LAYA_ID, AGENTJEV_ID, JULIA_ID, OMNI_ID, isLaya, isOmni } = SHARED;
 
 let passed = 0;
 let skipped = 0;
@@ -231,7 +234,7 @@ for (const id of RERANK_KNOWN) {
 }
 
 // Laya doubles as a reranker under its own id; same shape, one request.
-for (const id of models.filter((m) => m === LAYA_PREFIX || m.startsWith(`${LAYA_PREFIX}/`))) {
+for (const id of models.filter(isLaya)) {
   if (RERANK_KNOWN.includes(id)) continue;
   skip(`rerank ${id}`, "covered below via /v1/decisions");
 }
@@ -247,7 +250,7 @@ function assertProbMap(answerId, probs) {
   if (Math.abs(sum - 1) > 0.05) throw new Error(`${answerId}: probabilities sum to ${sum.toFixed(3)}`);
 }
 
-const layaId = models.find((m) => m === LAYA_PREFIX || m.startsWith(`${LAYA_PREFIX}/`));
+const layaId = models.find(isLaya);
 if (layaId === undefined) {
   skip("decisions laya", "not advertised");
 } else {
@@ -300,7 +303,7 @@ if (!models.includes(AGENTJEV_ID)) {
 
 // A 1x1 PNG; the content is irrelevant, only that it decodes.
 const PIXEL = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-const omniId = models.find((m) => m.startsWith(OMNI_PREFIX));
+const omniId = models.find(isOmni);
 if (omniId === undefined) {
   skip("decisions omnijev", "not advertised");
 } else {
@@ -353,7 +356,7 @@ if (!models.includes(JULIA_ID)) {
 // reported — not passed.
 const covered = new Set([...EMBED_KNOWN, ...RERANK_KNOWN, AGENTJEV_ID, JULIA_ID]);
 for (const id of models) {
-  if (covered.has(id) || id === LAYA_PREFIX || id.startsWith(`${LAYA_PREFIX}/`) || id.startsWith(OMNI_PREFIX)) continue;
+  if (covered.has(id) || isLaya(id) || isOmni(id)) continue;
   skip(`unknown kind ${id}`, "no smoke check yet — extend scripts/smoke.mjs");
 }
 
