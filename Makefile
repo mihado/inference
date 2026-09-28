@@ -71,41 +71,50 @@ up-qwen-embed: ## start the default stack plus the Qwen3 embedder pair
 down-qwen-embed: ## stop and remove the Qwen3 embedder pair only
 	docker compose -f compose.qwen-embed.yml --profile qwen-embed down
 
+# One profile's up/down pair; every Python profile shares the shape, so the
+# six pairs call these instead of repeating the compose flags.
+define up-py
+GPU_EXTRAS=$(GPU) GPU_EXTRAS_B=$(GPU_B) docker compose -f compose.yml -f $(1)/compose.$(1).yml $(call py-profiles,$(1)) up -d --build
+endef
+define down-py
+docker compose -f $(1)/compose.$(1).yml --profile $(1) --profile $(1)-b down
+endef
+
 up-laya: ## start the default stack plus the Laya service (CONCURRENCY=2: second replica)
-	GPU_EXTRAS=$(GPU) GPU_EXTRAS_B=$(GPU_B) docker compose -f compose.yml -f laya/compose.laya.yml $(call py-profiles,laya) up -d --build
+	$(call up-py,laya)
 
 down-laya: ## stop and remove the Laya service, both replicas
-	docker compose -f laya/compose.laya.yml --profile laya --profile laya-b down
+	$(call down-py,laya)
 
 up-agentjev: ## start the default stack plus the AgentJev service (CONCURRENCY=2: second replica)
-	GPU_EXTRAS=$(GPU) GPU_EXTRAS_B=$(GPU_B) docker compose -f compose.yml -f agentjev/compose.agentjev.yml $(call py-profiles,agentjev) up -d --build
+	$(call up-py,agentjev)
 
 down-agentjev: ## stop and remove the AgentJev service, both replicas
-	docker compose -f agentjev/compose.agentjev.yml --profile agentjev --profile agentjev-b down
+	$(call down-py,agentjev)
 
 up-jina: ## start the default stack plus the Jina reranker (CONCURRENCY=2: second replica, non-commercial)
-	GPU_EXTRAS=$(GPU) GPU_EXTRAS_B=$(GPU_B) docker compose -f compose.yml -f jina/compose.jina.yml $(call py-profiles,jina) up -d --build
+	$(call up-py,jina)
 
 down-jina: ## stop and remove the Jina service, both replicas
-	docker compose -f jina/compose.jina.yml --profile jina --profile jina-b down
+	$(call down-py,jina)
 
 up-jina-embed: ## start the default stack plus the Jina embedder (CONCURRENCY=2: second replica, non-commercial)
-	GPU_EXTRAS=$(GPU) GPU_EXTRAS_B=$(GPU_B) docker compose -f compose.yml -f jina-embed/compose.jina-embed.yml $(call py-profiles,jina-embed) up -d --build
+	$(call up-py,jina-embed)
 
 down-jina-embed: ## stop and remove the Jina embedder, both replicas
-	docker compose -f jina-embed/compose.jina-embed.yml --profile jina-embed --profile jina-embed-b down
+	$(call down-py,jina-embed)
 
 up-omnijev: ## start the default stack plus the OmniJev service (CONCURRENCY=2: second replica, Apache-2.0)
-	GPU_EXTRAS=$(GPU) GPU_EXTRAS_B=$(GPU_B) docker compose -f compose.yml -f omnijev/compose.omnijev.yml $(call py-profiles,omnijev) up -d --build
+	$(call up-py,omnijev)
 
 down-omnijev: ## stop and remove the OmniJev service, both replicas
-	docker compose -f omnijev/compose.omnijev.yml --profile omnijev --profile omnijev-b down
+	$(call down-py,omnijev)
 
 up-julia: ## start the default stack plus the Julia-1 service (CONCURRENCY=2: second replica, Apache-2.0)
-	GPU_EXTRAS=$(GPU) GPU_EXTRAS_B=$(GPU_B) docker compose -f compose.yml -f julia/compose.julia.yml $(call py-profiles,julia) up -d --build
+	$(call up-py,julia)
 
 down-julia: ## stop and remove the Julia-1 service, both replicas
-	docker compose -f julia/compose.julia.yml --profile julia --profile julia-b down
+	$(call down-py,julia)
 
 status: ## live model of each server
 	scripts/model.sh status

@@ -50,14 +50,11 @@ Engine 000: Avg prompt throughput: 55319.7 tokens/s, Running: 123 reqs, Waiting:
 
 ## One container, one entry
 
-The router can receive backends from two sources: a static list and the Docker socket. This is dangerous.
+The router can receive backends from two sources: a static list and the Docker socket. That union once gave one container two names — `voyage-embed` and `inference-voyage-embed-1`, both resolving to the same container:
 
 - Compose names a container `<project>-<service>-<index>`. The network alias of the container is the service name.
-- Two sources gave one container two names: `voyage-embed` and `inference-voyage-embed-1`. Both names resolved to the same container.
 - The rotation used `turn % urls.length`. Three entries gave one container two of every three requests. The second container served at half rate, and the token rates showed a ratio of 1.9 to 1.
-- The identity of a container is its compose service label, `com.docker.compose.service`. Name a backend by that label. A discovered container and a static entry then agree, and the list has one entry for each container.
-
-Do not keep a static list beside discovery. Add the service to the compose file and start it again.
+- The fix is identity by compose service label, `com.docker.compose.service`: a discovered container and a static entry deduplicate to one entry per container, so the static list is safe to keep beside discovery (for non-compose backends and tests). A second name for the same container is the symptom to watch for.
 
 ## Procedure
 
