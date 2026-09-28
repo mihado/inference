@@ -1,0 +1,66 @@
+name: inference
+
+# The `julia` profile: the Julia-1 decision model on its own Python runtime
+# (julia/), not TEI — a custom decision head, so TEI and vLLM cannot host it.
+# `julia-b` is the second replica on the other card: `make up-julia
+# CONCURRENCY=2` starts it, and the router alternates between the two.
+# Apache-2.0 code and weights; unlike the Jina profiles this one may serve.
+# The runtime downloads with the checkpoint at container start into the shared
+# HF cache. See julia/README.md.
+#
+#   docker compose -f compose.yml -f julia/compose.julia.yml --profile julia --profile julia-b up -d --build
+#   make up-julia / make down-julia
+
+x-julia: &julia
+  build: ./julia
+  restart: unless-stopped
+  labels:
+    - tei.backend=1
+  environment:
+    HUGGINGFACE_HUB_CACHE: /data
+    # Authenticates Hub downloads when set; public models work without it.
+    HF_TOKEN: ${HF_TOKEN:-}
+    JULIA_REPO: ${JULIA_REPO:-SupersonicLabs/Julia-1}
+    JULIA_DEVICE: ${JULIA_DEVICE:-}
+    JULIA_MAX_LENGTH: ${JULIA_MAX_LENGTH:-8192}
+    JULIA_HEAD_LENGTH: ${JULIA_HEAD_LENGTH:-512}
+    JULIA_MAX_QUESTIONS: ${JULIA_MAX_QUESTIONS:-32}
+  volumes:
+    - ${HF_CACHE:-$HOME/.hf-cache}:/data
+  healthcheck:
+    test:
+      [
+        "CMD-SHELL",
+        "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:80/health')\" || exit 1",
+      ]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 300s
+
+services:
+  julia:
+    <<: *julia
+    profiles: ["julia"]
+    ports:
+      - "${PORT_JULIA:-8047}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS:-0}"]
+              capabilities: [gpu]
+
+  julia-b:
+    <<: *julia
+    profiles: ["julia-b"]
+    ports:
+      - "${PORT_JULIA_B:-8048}:80"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_EXTRAS_B:-1}"]
+              capabilities: [gpu]

@@ -1,11 +1,12 @@
 # Wrappers over docker compose and scripts/model.sh.
 ROUTER_PORT ?= 8100
+ROUTER_URL ?= http://localhost:$(ROUTER_PORT)
 
 # Service-owned targets live with what they serve; included, not duplicated.
 include ollama/ollama.mk
 
 # Every compose file; only the "all" targets name them.
-COMPOSE_ALL := docker compose -f compose.yml -f compose.rerankers.yml -f laya/compose.laya.yml -f agentjev/compose.agentjev.yml -f ollama/compose.ollama.yml -f jina/compose.jina.yml -f jina-embed/compose.jina-embed.yml -f omnijev/compose.omnijev.yml -f compose.qwen-embed.yml
+COMPOSE_ALL := docker compose -f compose.yml -f compose.rerankers.yml -f laya/compose.laya.yml -f agentjev/compose.agentjev.yml -f ollama/compose.ollama.yml -f jina/compose.jina.yml -f jina-embed/compose.jina-embed.yml -f omnijev/compose.omnijev.yml -f julia/compose.julia.yml -f compose.qwen-embed.yml
 
 # Concurrency is instances per Python profile, not workers: CONCURRENCY=2 adds
 # the profile's second replica (-b) on the other card, with its own port; the
@@ -36,6 +37,7 @@ help: ## list every target and flag
 		'GPU_B=<card>'    'second replica card (default: the other card)' \
 		'CONCURRENCY=1|2' 'replicas per Python profile (default 1)' \
 		'ROUTER_PORT=<p>' 'router port for `make models` (default 8100)' \
+		'ROUTER_URL=<url>' 'router base for `make smoke` (default http://localhost:$(ROUTER_PORT))' \
 		'SVC=<service>'   'service for `make logs`' \
 		'MODEL=<id>'      'model for `make run` (ad-hoc TEI slot)' \
 		'NAME=<name>'     'slot name for `make run` / `make stop`' \
@@ -99,6 +101,12 @@ up-omnijev: ## start the default stack plus the OmniJev service (CONCURRENCY=2: 
 down-omnijev: ## stop and remove the OmniJev service, both replicas
 	docker compose -f omnijev/compose.omnijev.yml --profile omnijev --profile omnijev-b down
 
+up-julia: ## start the default stack plus the Julia-1 service (CONCURRENCY=2: second replica, Apache-2.0)
+	GPU_EXTRAS=$(GPU) GPU_EXTRAS_B=$(GPU_B) docker compose -f compose.yml -f julia/compose.julia.yml $(call py-profiles,julia) up -d --build
+
+down-julia: ## stop and remove the Julia-1 service, both replicas
+	docker compose -f julia/compose.julia.yml --profile julia --profile julia-b down
+
 status: ## live model of each server
 	scripts/model.sh status
 
@@ -115,6 +123,9 @@ logs: ## follow one service: make logs SVC=reranker
 throughput: ## vLLM's tokens/s and queue depth while it works
 	@out="$$(docker compose logs --since 5m voyage-embed voyage-embed-b 2>/dev/null | grep -E 'Avg prompt throughput|Running:' | tail -20)"; \
 	if [ -n "$$out" ]; then echo "$$out"; else echo "no throughput lines yet - vLLM writes them per interval while it works"; fi
+
+smoke: ## live smoke through the router (one inference per model kind)
+	ROUTER_URL="$(ROUTER_URL)" node scripts/smoke.mjs
 
 run: ## start a free ad-hoc TEI slot: make run MODEL=... [NAME=] [GPU=] [PORT=]
 	scripts/run.sh "$(MODEL)" $(if $(NAME),--name $(NAME)) $(if $(GPU),--gpu $(GPU)) $(if $(PORT),--port $(PORT))
