@@ -19,7 +19,7 @@
 import { createServer, request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
 
-import { accessLine, addBackend, backendName, eligibleBackends, infoPaths, modelAdvertises, openAiModelIds, pickBackend, setBackendPaths, teiModelId } from "./backends.mjs";
+import { accessLine, addBackend, backendName, eligibleBackends, infoPaths, modelAdvertises, openAiModelIds, pickBackend, recordStat, setBackendPaths, summarizeStats, teiModelId } from "./backends.mjs";
 
 const PORT = Number(process.env.PORT ?? 80);
 const BACKENDS = (process.env.BACKENDS ?? "")
@@ -45,6 +45,10 @@ let modelBackend = new Map();
 /** backend base url -> POST paths it advertised in /info (`paths`). A backend
  * that omits `paths` (TEI, vLLM) has no entry and routes the static set. */
 let backendPaths = new Map();
+/** model id -> request/error counts plus p50 latencies, per model and per
+ * backend, since boot. Unknown-model probes ("-") are logged but not kept. */
+const stats = {};
+const startedAt = Date.now();
 /** model id -> how many requests it has been asked for. Kept outside the scan, so
  * a rescan does not reset the rotation. */
 const turns = new Map();
@@ -266,7 +270,12 @@ async function handle(request, response) {
   const path = url.pathname;
 
   if (request.method === "GET" && (path === "/health" || path === "/healthz")) {
-    return sendJson(response, 200, { status: "ok", models: modelBackend.size });
+    return sendJson(response, 200, {
+      status: "ok",
+      models: modelBackend.size,
+      uptime_s: Math.floor((Date.now() - startedAt) / 1000),
+      stats: summarizeStats(stats),
+    });
   }
 
   if (request.method === "GET" && path === "/v1/models") {
@@ -291,8 +300,11 @@ async function handle(request, response) {
     if (!isStatic && !advertised) {
       return sendError(response, 404, "Not found.", "invalid_request_error");
     }
-    const log = (model, backend, status) =>
-      console.log(accessLine({ method: "POST", path, model, backend, status, ms: Date.now() - started }));
+    const log = (model, backend, status) => {
+      const ms = Date.now() - started;
+      if (model !== "-") recordStat(stats, model, backend, status, ms);
+      console.log(accessLine({ method: "POST", path, model, backend, status, ms }));
+    };
     if (body === "aborted") return;
     if (body === "too-large") {
       log("-", "-", 413);
@@ -317,6 +329,7 @@ async function handle(request, response) {
     }
     const upstream = backendRequest(path, body);
     const { status, ms } = await proxy(response, backend, upstream.path, upstream.body);
+    recordStat(stats, model, backend, status, ms);
     console.log(accessLine({ method: "POST", path, model, backend, status, ms }));
     return;
   }

@@ -11,8 +11,11 @@ import {
   infoPaths,
   modelAdvertises,
   openAiModelIds,
+  p50,
   pickBackend,
+  recordStat,
   setBackendPaths,
+  summarizeStats,
   teiModelId,
 } from "./backends.mjs";
 
@@ -146,4 +149,44 @@ test("a container is one entry in the rotation, whichever name found it", () => 
   assert.equal(pickBackend(found.get(MODEL), 0), "http://voyage-embed:80");
   assert.equal(pickBackend(found.get(MODEL), 1), "http://voyage-embed-b:80");
   assert.equal(pickBackend(found.get(MODEL), 2), "http://voyage-embed:80");
+});
+
+test("recordStat counts per model and backend; 5xx and missing backends err", () => {
+  const models = {};
+  recordStat(models, "m", "http://a:80", 200, 10);
+  recordStat(models, "m", "http://b:80", 200, 30);
+  recordStat(models, "m", "http://a:80", 502, 50);
+  recordStat(models, "m", "-", 404, 1);
+  recordStat(models, "m", "http://a:80", 400, 5);
+  const entry = models.m;
+  assert.equal(entry.requests, 5);
+  assert.equal(entry.errors, 2);
+  assert.equal(entry.backends["http://a:80"].requests, 3);
+  assert.equal(entry.backends["http://a:80"].errors, 1);
+  assert.equal(entry.backends["http://b:80"].errors, 0);
+  assert.equal("-" in entry.backends, false);
+});
+
+test("p50 is the lower median, 0 when empty", () => {
+  assert.equal(p50([]), 0);
+  assert.equal(p50([40]), 40);
+  assert.equal(p50([10, 30, 20]), 20);
+  assert.equal(p50([10, 20, 30, 40]), 20);
+});
+
+test("recordStat ages samples past the ring", () => {
+  const models = {};
+  for (let i = 0; i < 300; i++) recordStat(models, "m", "http://a:80", 200, i);
+  assert.equal(models.m.latencies.length, 256);
+  assert.equal(summarizeStats(models).m.requests, 300);
+});
+
+test("summarizeStats hides samples, keeps counts and p50", () => {
+  const models = {};
+  recordStat(models, "m", "http://a:80", 200, 10);
+  const view = summarizeStats(models);
+  assert.deepEqual(view, {
+    m: { requests: 1, errors: 0, p50_ms: 10, backends: { "http://a:80": { requests: 1, errors: 0, p50_ms: 10 } } },
+  });
+  assert.equal(JSON.parse(JSON.stringify(view)).m.p50_ms, 10);
 });

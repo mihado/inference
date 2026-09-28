@@ -99,6 +99,59 @@ export function pickBackend(urls, turn) {
   return urls[turn % urls.length];
 }
 
+/** Latency samples kept per bucket for p50; old samples age out. */
+const STAT_RING = 256;
+
+function tally(record, status, ms, error) {
+  record.requests += 1;
+  if (error) record.errors += 1;
+  record.latencies.push(ms);
+  if (record.latencies.length > STAT_RING) record.latencies.shift();
+}
+
+/** Records one dispatched request: per model and per backend. A 5xx or a
+ * missing backend (`-`) counts as an error; 4xx input faults do not. Plain
+ * objects throughout, so the structure serializes to JSON untouched. */
+export function recordStat(models, model, backend, status, ms) {
+  const error = status >= 500 || backend === "-";
+  let entry = models[model];
+  if (entry === undefined) {
+    entry = models[model] = { requests: 0, errors: 0, latencies: [], backends: {} };
+  }
+  tally(entry, status, ms, error);
+  if (backend !== "-") {
+    let sub = entry.backends[backend];
+    if (sub === undefined) {
+      sub = entry.backends[backend] = { requests: 0, errors: 0, latencies: [] };
+    }
+    tally(sub, status, ms, error);
+  }
+}
+
+/** Lower-median of samples, or 0 when empty. */
+export function p50(latencies) {
+  if (latencies.length === 0) return 0;
+  return [...latencies].sort((a, b) => a - b)[Math.floor((latencies.length - 1) / 2)];
+}
+
+/** The /health stats view: counts plus p50, without the raw samples. */
+export function summarizeStats(models) {
+  const out = {};
+  for (const [model, entry] of Object.entries(models)) {
+    const backends = {};
+    for (const [base, sub] of Object.entries(entry.backends)) {
+      backends[base] = { requests: sub.requests, errors: sub.errors, p50_ms: p50(sub.latencies) };
+    }
+    out[model] = {
+      requests: entry.requests,
+      errors: entry.errors,
+      p50_ms: p50(entry.latencies),
+      backends,
+    };
+  }
+  return out;
+}
+
 /** One access-log line per forwarded request. Pure, so it can be tested.
 ///
 /// Bodies are never logged: states may be sensitive, and the catalogue fields
