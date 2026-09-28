@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
+import { connect } from "node:net";
 import { test } from "node:test";
 
 const DIR = new URL(".", import.meta.url).pathname;
@@ -22,6 +23,25 @@ function stub(name, catalogue) {
     request.on("end", () => {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ stub: name, path: request.url, body: JSON.parse(raw) }));
+    });
+  });
+  return { server };
+}
+
+/** A backend that dies mid-response: headers go out, the socket does not —
+ * the shape of a backend OOM-kill or restart under load. */
+function flakyBackend(catalogue) {
+  const server = createServer((request, response) => {
+    if (request.method === "GET") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify(catalogue()));
+      return;
+    }
+    request.resume();
+    request.on("end", () => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.write('{"partial":');
+      response.destroy();
     });
   });
   return { server };
@@ -45,6 +65,8 @@ let child;
 let stubA;
 let stubB;
 let stubC;
+let stubD;
+let flaky;
 
 test.before(async () => {
   stubA = stub("a", () => ({ model_id: "test-rerank" }));
@@ -52,9 +74,14 @@ test.before(async () => {
   // A backend advertising a path the router never hardcoded, with junk the
   // router must ignore (see README.md "Router").
   stubC = stub("c", () => ({ model_id: "test-paths", paths: ["/v1/novel", "relative", 42, "/v1/novel"] }));
+  // Same model, older paths: the un-upgraded replica in a rollout.
+  stubD = stub("d", () => ({ model_id: "test-paths", paths: ["/v1/legacy"] }));
+  flaky = flakyBackend(() => ({ model_id: "test-flaky" }));
   const portA = await listen(stubA.server);
   const portB = await listen(stubB.server);
   const portC = await listen(stubC.server);
+  const portD = await listen(stubD.server);
+  const portF = await listen(flaky.server);
 
   const routerPort = await freePort();
   child = spawn(process.execPath, ["index.mjs"], {
@@ -62,7 +89,7 @@ test.before(async () => {
     env: {
       ...process.env,
       PORT: String(routerPort),
-      BACKENDS: `http://127.0.0.1:${portA},http://127.0.0.1:${portB},http://127.0.0.1:${portC}`,
+      BACKENDS: `http://127.0.0.1:${portA},http://127.0.0.1:${portB},http://127.0.0.1:${portC},http://127.0.0.1:${portD},http://127.0.0.1:${portF}`,
       DOCKER_SOCK: "/nonexistent-router-test.sock",
       MODEL_TTL_MS: "60000",
     },
@@ -82,11 +109,16 @@ test.before(async () => {
 });
 
 test.after(async () => {
-  child.kill();
-  await new Promise((resolve) => child.on("exit", resolve));
+  // A crashed child has no future 'exit' event; do not hang the suite on it.
+  if (child.exitCode === null) {
+    child.kill();
+    await new Promise((resolve) => child.on("exit", resolve));
+  }
   stubA.server.close();
   stubB.server.close();
   stubC.server.close();
+  stubD.server.close();
+  flaky.server.close();
 });
 
 async function post(path, body, raw) {
@@ -102,7 +134,7 @@ test("GET /v1/models is the union of both catalogue shapes", async () => {
   const response = await fetch(`${routerBase}/v1/models`);
   assert.equal(response.status, 200);
   const ids = (await response.json()).data.map((entry) => entry.id).sort();
-  assert.deepEqual(ids, ["test-embed", "test-paths", "test-rerank"]);
+  assert.deepEqual(ids, ["test-embed", "test-flaky", "test-paths", "test-rerank"]);
 });
 
 test("POST /rerank normalizes Cohere documents to TEI texts", async () => {
@@ -174,6 +206,26 @@ test("advertised junk never routes, and an unadvertised path still 404s", async 
   assert.equal((await post("/v1/novel", { model: "nope" })).status, 404);
 });
 
+test("a novel path never reaches the replica that did not advertise it", async () => {
+  const who = new Set();
+  for (let i = 0; i < 4; i++) {
+    const { status, body } = await post("/v1/novel", { model: "test-paths", state: "s" });
+    assert.equal(status, 200);
+    who.add(body.stub);
+  }
+  assert.deepEqual([...who], ["c"]);
+});
+
+test("a static path still alternates across both replicas", async () => {
+  const who = new Set();
+  for (let i = 0; i < 4; i++) {
+    const { body } = await post("/rerank", { model: "test-paths", query: "q", texts: ["d"] });
+    assert.equal(body.path, "/rerank");
+    who.add(body.stub);
+  }
+  assert.deepEqual([...who].sort(), ["c", "d"]);
+});
+
 test("POST /v1/embeddings forwards untouched to the OpenAI-shaped backend", async () => {
   const payload = { model: "test-embed", input: "hi" };
   const { status, body } = await post("/v1/embeddings", payload);
@@ -203,6 +255,29 @@ test("bad input answers 400, unknown model 404, unknown path 404", async () => {
   assert.equal((await post("/rerank", {})).status, 400);
   assert.equal((await post("/rerank", { model: "nope", query: "q", texts: [] })).status, 404);
   assert.equal((await fetch(`${routerBase}/nope`)).status, 404);
+});
+
+test("a backend that drops mid-response becomes a 502, not an exit", async () => {
+  const { status } = await post("/rerank", { model: "test-flaky", query: "q", texts: ["d"] });
+  assert.equal(status, 502);
+  assert.equal((await fetch(`${routerBase}/health`)).status, 200);
+  assert.equal(child.exitCode, null);
+});
+
+test("a client that disconnects mid-body does not take the router down", async () => {
+  const port = new URL(routerBase).port;
+  await new Promise((resolve) => {
+    const socket = connect(port, "127.0.0.1", () => {
+      socket.write(
+        "POST /rerank HTTP/1.1\r\nhost: x\r\ncontent-type: application/json\r\ncontent-length: 10000\r\n\r\n{\"model\":\"x\"",
+      );
+      socket.destroy();
+      socket.on("close", resolve);
+    });
+  });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.equal((await fetch(`${routerBase}/health`)).status, 200);
+  assert.equal(child.exitCode, null);
 });
 
 test("GET /health answers without a catalogue scan", async () => {

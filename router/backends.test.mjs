@@ -6,11 +6,13 @@ import { test } from "node:test";
 import {
   accessLine,
   addBackend,
-  addPaths,
   backendName,
+  eligibleBackends,
   infoPaths,
+  modelAdvertises,
   openAiModelIds,
   pickBackend,
+  setBackendPaths,
   teiModelId,
 } from "./backends.mjs";
 
@@ -74,13 +76,38 @@ test("infoPaths keeps absolute paths, drops junk, dedupes", () => {
   assert.deepEqual(infoPaths(null), []);
 });
 
-test("addPaths unions per model, and empty adds nothing", () => {
+test("setBackendPaths replaces per backend, and empty removes", () => {
   const found = new Map();
-  addPaths(found, "m", []);
-  assert.equal(found.get("m"), undefined);
-  addPaths(found, "m", ["/a"]);
-  addPaths(found, "m", ["/a", "/b"]);
-  assert.deepEqual([...found.get("m")].sort(), ["/a", "/b"]);
+  setBackendPaths(found, "http://a:80", []);
+  assert.equal(found.get("http://a:80"), undefined);
+  setBackendPaths(found, "http://a:80", ["/a"]);
+  setBackendPaths(found, "http://a:80", ["/b"]);
+  assert.deepEqual([...found.get("http://a:80")], ["/b"]);
+  setBackendPaths(found, "http://a:80", []);
+  assert.equal(found.get("http://a:80"), undefined);
+});
+
+test("modelAdvertises answers whether any serving backend has the path", () => {
+  const byBase = new Map([["http://a:80", new Set(["/v1/novel"])]]);
+  assert.equal(modelAdvertises(["http://a:80", "http://b:80"], byBase, "/v1/novel"), true);
+  assert.equal(modelAdvertises(["http://b:80"], byBase, "/v1/novel"), false);
+  assert.equal(modelAdvertises(undefined, byBase, "/v1/novel"), false);
+});
+
+test("eligibleBackends keeps novel paths on the backends that advertised them", () => {
+  const urls = ["http://a:80", "http://b:80"];
+  const mixed = new Map([
+    ["http://a:80", new Set(["/v1/novel"])],
+    ["http://b:80", new Set(["/v1/legacy"])],
+  ]);
+  assert.deepEqual(eligibleBackends(urls, mixed, "/v1/novel", false), ["http://a:80"]);
+  assert.deepEqual(eligibleBackends(urls, mixed, "/v1/legacy", false), ["http://b:80"]);
+  assert.deepEqual(eligibleBackends(urls, mixed, "/rerank", true), urls);
+  // A backend that advertises nothing stays eligible (legacy TEI/vLLM shape).
+  assert.deepEqual(eligibleBackends(urls, new Map(), "/v1/novel", false), urls);
+  assert.deepEqual(eligibleBackends(["http://b:80"], mixed, "/v1/novel", false), undefined);
+  assert.equal(eligibleBackends(undefined, mixed, "/v1/novel", false), undefined);
+  assert.equal(eligibleBackends([], mixed, "/v1/novel", false), undefined);
 });
 
 test("accessLine fits one line and strips forged newlines", () => {

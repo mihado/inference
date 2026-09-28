@@ -99,7 +99,7 @@ One port must be open to the network: the router on 8100. Clients use the router
 
 The router reads the model of each server. It reads the TEI `/info` data, or the OpenAI `/v1/models` list of a vLLM server. It repeats the read every 30 seconds. So the router finds a new or changed server with no restart.
 
-Backends advertise the POST paths they serve in `/info` (`paths`), and the router unions those with its static set — a new surface routes with no router change. A backend that omits `paths` (TEI, vLLM) routes the static set only; malformed entries are ignored, and unlisted paths 404:
+Backends advertise the POST paths they serve in `/info` (`paths`), and the router unions those with its static set — a new surface routes with no router change. An advertised path routes only to the backends that advertised it, so a rolling upgrade never sends it to an un-upgraded replica. A backend that omits `paths` (TEI, vLLM) routes the static set only; malformed entries are ignored, and unlisted paths 404:
 
 | Service | Advertised paths |
 | --- | --- |

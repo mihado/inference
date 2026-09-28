@@ -63,13 +63,31 @@ export function infoPaths(info) {
   return [...seen];
 }
 
-/** Records that the backends serving `id` also answer `paths`. Empty adds
- * nothing, so backends that omit `paths` leave no trace. */
-export function addPaths(found, id, paths) {
-  if (paths.length === 0) return;
-  const known = found.get(id);
-  if (known === undefined) found.set(id, new Set(paths));
-  else for (const path of paths) known.add(path);
+/** Records the POST paths one backend advertised, replacing its previous
+ * set. Backends that advertise nothing leave no entry and route the static
+ * set, as before. */
+export function setBackendPaths(found, base, paths) {
+  if (paths.length === 0) found.delete(base);
+  else found.set(base, new Set(paths));
+}
+
+/** Whether any backend serving a model advertises `path`. */
+export function modelAdvertises(urls, pathsByBase, path) {
+  return Array.isArray(urls) && urls.some((base) => pathsByBase.get(base)?.has(path) === true);
+}
+
+/** The backends of a model eligible for `path`: an advertised path routes
+ * only to backends that advertised it (so a rolling upgrade never sends it
+ * to an un-upgraded replica); static paths, and backends that advertise
+ * nothing, route everywhere, as before. Undefined when nothing is eligible. */
+export function eligibleBackends(urls, pathsByBase, path, isStatic) {
+  if (!Array.isArray(urls) || urls.length === 0) return undefined;
+  if (isStatic) return urls;
+  const eligible = urls.filter((base) => {
+    const advertised = pathsByBase.get(base);
+    return advertised === undefined || advertised.has(path);
+  });
+  return eligible.length > 0 ? eligible : undefined;
 }
 
 /** Round-robin over a model's backends. Pure: the caller keeps the turn.
