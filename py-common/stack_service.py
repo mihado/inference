@@ -113,14 +113,19 @@ def check_rerank_body(
     return (query, texts), None
 
 
-def decode_data_url(url: str) -> Tuple[Optional[bytes], Optional[str]]:
+def decode_data_url(url: str, max_bytes: int = 25_000_000) -> Tuple[Optional[bytes], Optional[str]]:
     """Bytes for a base64 image data URL, or a refusal message.
 
     Only `data:` URLs pass: fetching a caller-supplied URL would add the
-    outbound-fetch surface the router deliberately does not have."""
+    outbound-fetch surface the router deliberately does not have. Payloads
+    past max_bytes are refused before decoding, so one oversized image
+    cannot balloon memory (a photo at the services' pixel budgets decodes
+    to single-digit megabytes; 25MB is headroom, not a target)."""
     header, separator, payload = url.partition(",")
     if not url.startswith("data:") or separator == "" or ";base64" not in header:
         return None, "Only base64 'data:' URLs are accepted; no outbound fetch."
+    if len(payload) > max_bytes:
+        return None, "The image data exceeds %d bytes." % max_bytes
     try:
         return base64.b64decode(payload, validate=True), None
     except (binascii.Error, ValueError):
