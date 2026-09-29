@@ -29,6 +29,7 @@ Latency is mean per request, single-shot, measured on an otherwise idle machine 
 | `rerank-3` (Voyage, paid) | **0.756** | 0.829 | 544 | **leads by 28, p=0.0003** |
 | `rerank-3-lite` (Voyage, paid) | 0.737 | 0.817 | 543 | **leads by 21, p=0.0065** |
 | `Alibaba-NLP/gte-reranker-modernbert-base` (local, incumbent) | 0.679 | 0.779 | 104 | — |
+| `jev-latest` (TypeSafe, paid) | 0.644 | 0.753 | 475 | gte leads by 13, p=0.18 — not significant |
 | `BAAI/bge-reranker-v2-m3` (local) | 0.625 | 0.727 | 212 | gte leads by 20, p=0.0078 |
 | `Alibaba-NLP/gte-multilingual-reranker-base` (local) | 0.625 | 0.733 | 134 | gte leads by 20, p=0.0265 |
 | `cross-encoder/ms-marco-MiniLM-L6-v2` (local) | 0.578 | 0.693 | 16 | gte leads by 37, p<0.0001 |
@@ -47,11 +48,13 @@ Not asked, and worth more than the answer that was asked: both Voyage models bea
 
 `rerank-3` and `rerank-3-lite` are statistically indistinguishable from each other here — 13 discordant cases to 6, p=0.167 — at 2.5× the price. If a paid reranker is taken, `rerank-3-lite` is the one the evidence supports.
 
+The third paid option, TypeSafe `jev-latest`, was included for completeness because it is the one contender whose standing changes. It is not: it places fourth, is statistically indistinguishable from the free incumbent (p=0.18), and costs 4.5× the latency to do it. Its earlier second place was an artifact of that table's build.
+
 **Recommendation: leave the local incumbent in place.** The case for changing is now "switch to a paid model", which is a latency and cost decision with a budget attached, not a consequence of a bake-off.
 
 ## What changed relative to `evaluation.md`
 
-Only the top-two direction reproduces. The middle of that ordering does not: `ms-marco-MiniLM-L6-v2` was second there and is fourth here; `gte-multilingual-reranker-base` was last and is tied third. **The local ordering in `evaluation.md` should not be cited as a standing result** — it was measured on a different index build against a different question selection, and it does not survive re-measurement. The `gte > bge` direction does survive, which is the part the serving decision rests on.
+Only the top-two direction reproduces, and only just. The middle of that ordering does not: `ms-marco-MiniLM-L6-v2` was second there and is fourth here; `gte-multilingual-reranker-base` was last and is tied third. `jev-latest` was the second-best model in that table, ahead of the incumbent; here it lands fourth and is **not significantly different from it** (p=0.18) while taking 4.5× the latency. Its position there does not reproduce either. **The local ordering in `evaluation.md` should not be cited as a standing result** — it was measured on a different index build against a different question selection, and it does not survive re-measurement. The `gte > bge` direction does survive, which is the part the serving decision rests on.
 
 On the previously hand-authored 105-case suite: it correlates ρ = +0.80 with this measurement, so it is not signal-free, but it ranked bge *above* gte and would have given the wrong answer to this exact question. It remains a regression gate. Do not use it to choose a model.
 
