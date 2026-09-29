@@ -1,13 +1,5 @@
-# Endpoint-level checks for the services importable without a GPU toolchain:
-#
+# julia and omnijev only: the other four import torch at module scope.
 #   uv run --no-project --with fastapi --with httpx python py-common/services_test.py
-#
-# laya, jina, jina-embed and agentjev import torch at module scope, so they are
-# not covered here; their /info is produced by the same helper and their request
-# bodies go through the same check_model_match / check_rerank_body, both covered
-# in stack_service_test.py. What is pinned here is the per-service wiring: the
-# discovery shape, the validation branches, and the error envelope around a
-# model call.
 import importlib.util
 import os
 import re
@@ -22,8 +14,7 @@ SERVICES = ["julia", "laya", "omnijev", "jina", "jina-embed", "agentjev"]
 
 
 def load(service):
-    # Every service's entrypoint is called server.py, so importing by name
-    # returns whichever was cached first. Load by path under a unique name.
+    # Every entrypoint is server.py; importing by name returns the cached one.
     directory = os.path.join(ROOT, service)
     path = os.path.join(directory, "server.py")
     spec = importlib.util.spec_from_file_location(f"{service}_server", path)
@@ -54,7 +45,6 @@ class DiscoveryShapeTest(unittest.TestCase):
                 self.assertNotIn("the model is still loading", block, f"{service}: /info repeats the 503")
 
     def test_no_service_repeats_the_readiness_rationale(self):
-        # One copy, in make_app's docstring.
         for service in SERVICES:
             with self.subTest(service=service):
                 source = open(os.path.join(ROOT, service, "server.py"), encoding="utf8").read()
@@ -76,8 +66,7 @@ class ServiceCase(unittest.TestCase):
         self.mod = load(self.service)
         self.client = TestClient(self.mod.app)
         self.mod.raise_exc = None
-        # julia resolves its device through torch when the env var is empty;
-        # there is no torch here, and the value is only echoed by /info.
+        # No torch here; julia only echoes this in /info.
         if hasattr(self.mod, "DEVICE"):
             self.mod.DEVICE = "cpu"
         self.loaded()
@@ -90,7 +79,6 @@ class ServiceCase(unittest.TestCase):
                 raise mod.raise_exc
             return result
 
-        # The /info fields are read off the model, so the stub needs them.
         return type(
             "Stub",
             (),
@@ -154,9 +142,6 @@ class ServiceCase(unittest.TestCase):
         self.assertIn(str(bound), got.json()["error"]["message"])
 
     def test_every_model_call_exception_becomes_a_400(self):  # noqa: D401
-        # The regression: laya's /rerank caught ValueError alone, so a TypeError
-        # or RuntimeError from the engine escaped as a bare 500 with a stack
-        # trace while every other service returned the error envelope.
         for exc in (ValueError, KeyError, TypeError, RuntimeError, OSError):
             with self.subTest(exc=exc.__name__):
                 self.mod.raise_exc = exc("engine refused")

@@ -68,12 +68,9 @@ def info_response(
     max_client_batch_size: int,
     extra: Optional[Callable[[], Dict[str, Any]]] = None,
 ) -> Any:
-    """TEI's /info shape. The router reads model_id from it and registers the
-    container under that one model, on the next 30s scan.
-
-    `extra` is a callable, not a dict, so a field read off the model is only
-    touched once the model exists. Building it eagerly turns the loading window
-    into a 500 instead of a 503."""
+    """TEI's /info shape. `extra` is a callable so model fields are only read
+    once the model exists; built eagerly, the loading window 500s instead of
+    answering 503."""
     if not loaded:
         return error(503, "the model is still loading", "model_loading")
     return {
