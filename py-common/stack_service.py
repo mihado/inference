@@ -124,9 +124,7 @@ def decode_data_url(url: str, max_bytes: int = 25_000_000) -> Tuple[Optional[byt
     header, separator, payload = url.partition(",")
     if not url.startswith("data:") or separator == "" or ";base64" not in header:
         return None, "Only base64 'data:' URLs are accepted; no outbound fetch."
-    # Compared before decoding, so an oversized image cannot balloon memory.
-    # The payload is base64 text, so this bounds characters, not decoded bytes;
-    # base64 is 4/3 the size it encodes, so the decoded cap is ~3/4 of max_bytes.
+    # Base64 text, so this bounds characters (~3/4 of that decoded).
     if len(payload) > max_bytes:
         return None, "The image data exceeds %d base64 characters." % max_bytes
     try:

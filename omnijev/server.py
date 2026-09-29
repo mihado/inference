@@ -53,7 +53,7 @@ SERVED_ID = CKPT
 # Upstream's default image budget: 768 vision tokens.
 MAX_PIXELS = int(os.environ.get("OMNIJEV_MAX_PIXELS") or str(768 * 28 * 28))
 MAX_QUESTIONS = int(os.environ.get("OMNIJEV_MAX_QUESTIONS", "32"))
-# Upstream builds one crop per frame, so this bounds compute, not a field width.
+# One crop per frame, so this bounds compute.
 MAX_VIDEO_FRAMES = int(os.environ.get("OMNIJEV_MAX_VIDEO_FRAMES", "16"))
 
 model: Optional[Any] = None
@@ -147,10 +147,8 @@ def systemone(body: Dict[str, Any]):
         call_state: Dict[str, Any] = {"images": [path]}
         if "video" in state:
             video = state["video"]
-            # Upstream indexes video["n_frames"], ["cols"], ["tile"] and
-            # timestamps, so an unchecked value sets the crop count. Same
-            # treatment as images: this release reads a fixed shape, so
-            # anything else is refused rather than forwarded.
+            # Upstream reads n_frames/cols/tile, so an unchecked value sets the
+            # crop count. This release reads a fixed shape; refuse the rest.
             if not isinstance(video, dict):
                 return stack_service.error(
                     400, "'state.video' must be an object.", "invalid_request_error"
