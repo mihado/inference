@@ -124,7 +124,11 @@ class DecodeDataUrlTest(unittest.TestCase):
                 self.assertTrue(refusal)
 
     def test_oversize_refused_before_decoding(self):
-        url = "data:image/png;base64,%s" % ("QQ==" * 100)
+        # Valid base64, so the second half (same payload, default cap) really
+        # decodes. "QQ==" repeated is not: the padding mid-string fails
+        # validate=True, which made this test assert a decode that can never
+        # happen and left the suite red.
+        url = "data:image/png;base64,%s" % ("QUJD" * 100)
         raw, refusal = stack_service.decode_data_url(url, max_bytes=10)
         self.assertIsNone(raw)
         self.assertIn("10", refusal)
