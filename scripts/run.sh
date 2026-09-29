@@ -53,6 +53,6 @@ docker run -d --name "$NAME" \
   -p "127.0.0.1:${PORT}:80" \
   -v "${HF_CACHE}:/data" \
   "ghcr.io/huggingface/text-embeddings-inference:${TEI_IMAGE_TAG}" \
-  --model-id "$MODEL" --dtype float16 --max-client-batch-size 128 --max-batch-tokens 32768
+  --model-id "$MODEL" --dtype float16 --max-client-batch-size "${MAX_EMBED_BATCH_SIZE:-128}" --max-batch-tokens 32768
 
 echo "$NAME  model=$MODEL  gpu=$GPU  host_port=$PORT  (router picks it up on the next scan)"
