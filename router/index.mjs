@@ -337,8 +337,7 @@ async function handle(request, response) {
       return sendError(response, 404, "Not found.", "invalid_request_error");
     }
     const isStatic = POST_PATHS.has(path);
-    const log = (model, backend, status, record = model !== "-") => {
-      const ms = Date.now() - started;
+    const log = (model, backend, status, record = model !== "-", ms = Date.now() - started) => {
       if (record) recordStat(stats, model, backend, status, ms);
       console.log(accessLine({ method: "POST", path, model, backend, status, ms }));
     };
@@ -389,8 +388,7 @@ async function handle(request, response) {
     }
     const upstream = backendRequest(path, body);
     const { status, ms } = await proxy(response, backend, upstream.path, upstream.body);
-    recordStat(stats, model, backend, status, ms);
-    console.log(accessLine({ method: "POST", path, model, backend, status, ms }));
+    log(model, backend, status, model !== "-", ms);
     return;
   }
 
