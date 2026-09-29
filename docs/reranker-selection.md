@@ -71,7 +71,7 @@ With no comparator, JavaScript sorts lexicographically. For indices 0–29 that 
 
 The bug is invisible at ten documents or fewer, where `0,1,2,…,9` sorts identically either way. The 105-case suite used six documents per case, so it could not have caught this. The first run against a full thirty-document pool failed all 370 cases at once. Fixed as `.sort((a, b) => a - b)`.
 
-Worth checking any other harness that validates a per-question index set for the same pattern.
+The scorer is [`../eval/rank.mjs`](../eval/rank.mjs), and [`../eval/rank.test.mjs`](../eval/rank.test.mjs) pins that case so it cannot regress silently. Worth checking any other harness that validates a per-question index set for the same pattern — a lexicographic sort over a fixed-width range is the shape to look for.
 
 ## Known defect in the delivered cases
 
@@ -85,7 +85,13 @@ Reported to the corpus owners; not fixable from here, since the case file is the
 
 ## Reproducing
 
-The private corpus is not in this repository, so the case file cannot be committed. The harness is, and the local field runs against it directly:
+The private corpus is not in this repository, so the case file cannot be committed. The harness is, and the local field runs against it directly. What produced this document:
+
+- [`../eval/README.md`](../eval/README.md) — the suite, its knobs, and what the metrics mean
+- [`../eval/run.mjs`](../eval/run.mjs) — the runner: every advertised reranker through the router, paid models through the gateway
+- [`../eval/rank.mjs`](../eval/rank.mjs) — the scorer, where the sort defect lived
+- [`../eval/rank.test.mjs`](../eval/rank.test.mjs) — its tests, including the 30-document regression; runs in `make test`
+- `../eval/golden.json` — the 105-case suite in this repo, superseded by the real-corpus file but still the fast gate (`make eval-golden`)
 
 ```bash
 # the whole local field
