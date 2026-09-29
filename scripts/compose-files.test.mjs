@@ -1,12 +1,5 @@
-// Runnable check that the compose file list in the Makefile stays complete:
-//
-//   node --test scripts/compose-files.test.mjs
-//
-// COMPOSE_ALL drives `up-all` and `down-all`. A compose file that is not in it
-// is invisible to both: `make down-all` leaves its containers running, and if
-// the file carries the tei.backend label the router keeps routing requests to a
-// container the operator believes is gone. Nothing else catches that, because
-// every other command names the file it needs explicitly.
+// A compose file missing from COMPOSE_ALL survives `down-all` while still
+// routed to.   node --test scripts/compose-files.test.mjs
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -15,8 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-/** Every compose file the repo ships: the top-level ones and the per-profile
- * ones in their own directories. */
+
 function composeFilesOnDisk() {
   const found = [];
   for (const entry of readdirSync(ROOT, { withFileTypes: true })) {
@@ -56,8 +48,6 @@ test("COMPOSE_ALL names every compose file on disk", () => {
 });
 
 test("every compose file declares the same project name", () => {
-  // `docker compose -f a.yml -f b.yml down` only removes b's services if the
-  // files agree on the project; a mismatch silently scopes the teardown.
   const names = new Map();
   for (const file of composeFilesOnDisk()) {
     const match = readFileSync(join(ROOT, file), "utf8").match(/^name:\s*(\S+)/m);
@@ -68,9 +58,7 @@ test("every compose file declares the same project name", () => {
 });
 
 test("the client batch bound is declared once per model class", () => {
-  // Cross-encoders and embedders take different bounds on purpose. What must
-  // not happen is the reranker number being restated per file until the files
-  // disagree, so every reranker site reads the same variable.
+  // Rerankers are 64 and embedders 128 on purpose; one variable each.
   const rerankerFiles = ["compose.yml", "compose.rerankers.yml"];
   for (const file of rerankerFiles) {
     const source = readFileSync(join(ROOT, file), "utf8");
