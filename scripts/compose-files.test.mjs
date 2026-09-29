@@ -80,6 +80,8 @@ test("the client batch bound is declared once per model class", () => {
   }
   const compose = readFileSync(join(ROOT, "compose.yml"), "utf8");
   assert.match(compose, /\$\{MAX_CLIENT_BATCH_SIZE:-64\}/, "compose.yml must read MAX_CLIENT_BATCH_SIZE");
+  const qwen = readFileSync(join(ROOT, "compose.qwen-embed.yml"), "utf8");
+  assert.match(qwen, /\$\{MAX_EMBED_BATCH_SIZE:-128\}/, "compose.qwen-embed.yml must read MAX_EMBED_BATCH_SIZE");
   const run = readFileSync(join(ROOT, "scripts/run.sh"), "utf8");
   assert.match(run, /\$\{MAX_EMBED_BATCH_SIZE:-128\}/, "run.sh must read MAX_EMBED_BATCH_SIZE");
 });
