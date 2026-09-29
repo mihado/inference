@@ -21,7 +21,7 @@ Fast reranker regression, not a serving decision.
 make eval-golden                     # locals via the router, paid via the gateway
 EVAL_VERBOSE=1 make eval-golden      # list every miss
 EVAL_PAID=rerank-3-lite,jev-latest make eval-golden
-EVAL_LIMIT=30 make eval-golden      # CI tier: first 30 cases, ~20s
+EVAL_LIMIT=10 make eval-golden      # CI tier: first 10 cases, seconds
 ```
 
 The paid adapter needs `LEXLAB_OPENAPI_KEY` in the environment; the gateway

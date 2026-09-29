@@ -1,22 +1,23 @@
 #!/usr/bin/env node
-// Reranker bake-off over the golden subset (eval/golden.json): fast
-// regression, not a serving decision. The full 500-Q held-out set in
-// docs/evaluation.md stays authoritative; this catches breakage, model
-// swaps, and shape drift in seconds, through the router only.
+// Reranker bake-off over the case file (eval/golden.json). The serving
+// decision and its evidence live in docs/reranker-selection.md; this harness
+// is how that evidence is produced and re-checked, and it catches breakage,
+// model swaps, and shape drift in seconds. Local models go through the router,
+// paid models through your v1-compat endpoint.
 //
 //   node eval/run.mjs                       # ROUTER_URL defaults below
 //   make eval-golden                        # ROUTER_URL from ROUTER_PORT
 //
-// Every advertised reranker runs the same 20 cases; unadvertised profiles
-// SKIP. Paid APIs (Voyage, TypeSafe) route through your v1-compat endpoint
-// once EVAL_V1_COMPAT is set and the adapter below is filled in — until
-// then they SKIP with the reason. Quality deltas never fail the run;
-// request errors do. Dependency-free (global fetch only).
+// Every advertised reranker runs the same cases; unadvertised profiles SKIP.
+// Paid models (Voyage, TypeSafe) route through EVAL_V1_COMPAT and are SKIPped
+// when LEXLAB_OPENAPI_KEY is unset. Quality deltas never fail the run; request
+// errors do. Dependency-free (global fetch only).
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadDotEnv, resolveIds } from "../scripts/smoke-config.mjs";
+import { relevantRank } from "./rank.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROUTER = (process.env.ROUTER_URL ?? "http://localhost:8100").replace(/\/+$/, "");
@@ -41,10 +42,11 @@ const LOCAL_KNOWN = (process.env.EVAL_LOCAL ?? [...SHARED.RERANK_KNOWN, SHARED.L
   .filter(Boolean);
 // Paid models and the endpoint that serves them; the adapter needs your
 // v1-compat call shape (URL, auth, body) before these run.
-const PAID_KNOWN = (process.env.EVAL_PAID ?? "rerank-3-lite,jev-latest").split(",").map((id) => id.trim()).filter(Boolean);
+const PAID_KNOWN = (process.env.EVAL_PAID ?? "rerank-3,rerank-3-lite").split(",").map((id) => id.trim()).filter(Boolean);
 
 const golden = JSON.parse(readFileSync(join(HERE, "golden.json"), "utf8"));
-// CI tier: the first N cases, a stable prefix of the file.
+// CI tier: the first N rows of the file, a stable prefix. Note the row count
+// is not always the case count — see DEDUP below.
 const LIMIT = Number(process.env.EVAL_LIMIT ?? 0);
 const cases = LIMIT > 0 ? golden.slice(0, LIMIT) : golden;
 
@@ -76,12 +78,15 @@ const lastSentAt = new Map();
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** `Retry-After` in ms, or null when absent or unparsable. */
+// Seconds, or the HTTP-date form of Retry-After. In ms, or null when absent or
+// unparsable.
 function retryAfterMs(response) {
   const raw = response.headers.get("retry-after");
   if (raw === null) return null;
   const seconds = Number(raw);
-  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : null;
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const when = Date.parse(raw);
+  return Number.isFinite(when) ? Math.max(0, when - Date.now()) : null;
 }
 
 /** One rerank through the product gateway; same response shape as ours.
@@ -123,25 +128,28 @@ async function postV1(payload) {
   }
 }
 
-/** Rank (1-based) of the relevant doc, tolerant of both response shapes. */
-function relevantRank(body, relPos, count) {
-  const results = Array.isArray(body) ? body : body?.results;
-  if (!Array.isArray(results) || results.length !== count) return null;
-  // Numeric sort. A bare .sort() orders indices as strings, so at 11 or more
-  // documents it yields 0,1,10,11,...,2 and every well-formed response is
-  // rejected as malformed. Six-document pools cannot catch this.
-  const order = [...results.map((entry) => entry?.index)].sort((a, b) => a - b);
-  if (order.join(",") !== [...Array(count).keys()].join(",")) return null;
-  const scores = results.map((entry) => entry?.relevance_score ?? entry?.score);
-  if (!scores.every(Number.isFinite)) return null;
-  const at = results.findIndex((entry) => entry?.index === relPos);
-  return at === -1 ? null : at + 1;
-}
-
 const { body: catalogue } = await get("/v1/models").catch(() => ({ body: null }));
 const advertised = new Set(
   (Array.isArray(catalogue?.data) ? catalogue.data : []).map((entry) => entry?.id).filter((id) => typeof id === "string"),
 );
+// The router advertises and enforces each model's client batch bound, and
+// answers an over-bound rerank with 413 batch_too_large. Reading it beats
+// hardcoding 30: operations.md's remedy for the queue-overflow gotcha is to
+// LOWER --max-client-batch-size, and a fixed 30 would then walk into a 413
+// wall with nothing to explain it. Absent or unparsable means unbounded.
+const batchBounds = new Map(
+  (Array.isArray(catalogue?.data) ? catalogue.data : [])
+    .filter((entry) => Number.isFinite(entry?.max_client_batch_size))
+    .map((entry) => [entry.id, entry.max_client_batch_size]),
+);
+
+/** One request's worth of documents for a model: the case pool, capped at
+ * the bound the router advertises. A pool under the bound is never split, so
+ * the common case still scores a case as one comparison. */
+function poolFor(id, texts) {
+  const bound = batchBounds.get(id);
+  return bound !== undefined && texts.length > bound ? texts.slice(0, bound) : texts;
+}
 if (advertised.size === 0) {
   console.log("FAIL - no models advertised; is the router up?");
   process.exit(1);
@@ -154,6 +162,7 @@ const rows = [];
 const perCase = [];
 
 async function score(id, send) {
+  const mine = [];
   let top1 = 0;
   let mrr = 0;
   let ms = 0;
@@ -162,8 +171,17 @@ async function score(id, send) {
     const texts = item.relevant_first ? [item.relevant, ...item.distractors] : [...item.distractors, item.relevant];
     const relPos = item.relevant_first ? 0 : texts.length - 1;
     let result;
+    const pool = poolFor(id, texts);
+    if (relPos >= pool.length) {
+      // The relevant document fell outside the bound we were allowed to send,
+      // so this case cannot be scored. Say so rather than scoring a truncated
+      // pool as if it were the whole one.
+      console.log(`SKIP - ${id} / ${item.id}: relevant document outside the ${pool.length}-document bound`);
+      ran += 1;
+      continue;
+    }
     try {
-      result = await send({ model: id, query: item.query, texts });
+      result = await send({ model: id, query: item.query, texts: pool });
     } catch (error) {
       console.log(`FAIL - ${id} / ${item.id}: ${String(error?.cause ?? error).slice(0, 120)}`);
       return null;
@@ -172,18 +190,19 @@ async function score(id, send) {
       console.log(`FAIL - ${id} / ${item.id}: status ${result.status} ${JSON.stringify(result.body)?.slice(0, 140)}`);
       return null;
     }
-    const rank = relevantRank(result.body, relPos, texts.length);
+    const rank = relevantRank(result.body, relPos, pool.length);
     if (rank === null) {
       console.log(`FAIL - ${id} / ${item.id}: bad shape`);
       return null;
     }
     if (rank === 1) top1 += 1;
     else if (process.env.EVAL_VERBOSE !== undefined) console.log(`miss - ${id} / ${item.id}: rank ${rank}`);
-    perCase.push({ model: id, id: item.id, rank, ms: result.ms });
+    mine.push({ model: id, id: item.id, rank, ms: result.ms });
     mrr += 1 / rank;
     ms += result.ms;
     ran += 1;
   }
+  perCase.push(...mine);
   return {
     recall1: ran > 0 ? `${top1}/${ran} (${(top1 / ran).toFixed(3)})` : "n/a",
     mrr: ran > 0 ? (mrr / ran).toFixed(3) : "n/a",
@@ -223,8 +242,12 @@ for (const row of rows) {
   }
 }
 console.log(failures > 0 ? `\neval: ${failures} request failures` : "\neval: clean");
+// resolve(), not join(): join() rewrites an absolute path under HERE and the
+// write then dies with ENOENT after the table is already printed. Written
+// before the exit so a failed run still leaves its rows.
 if (process.env.EVAL_PERCASE !== undefined) {
-  writeFileSync(join(HERE, process.env.EVAL_PERCASE), perCase.map((row) => JSON.stringify(row)).join("\n") + "\n");
-  console.log(`per-case rows: ${perCase.length} -> ${process.env.EVAL_PERCASE}`);
+  const out = resolve(process.env.EVAL_PERCASE);
+  writeFileSync(out, perCase.map((row) => JSON.stringify(row)).join("\n") + "\n");
+  console.log(`per-case rows: ${perCase.length} -> ${out}`);
 }
 process.exit(failures > 0 ? 1 : 0);

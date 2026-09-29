@@ -10,7 +10,9 @@ Two things separate this from a naive bake-off, and both are the reason the resu
 
 **Real candidate pools, not authored distractors.** Every case is scored against the full candidate set the real retrieval stage actually returned for that query — roughly thirty documents, the production candidate count — with one of them the document that answers the question. Ranking among documents a real retrieval system surfaced is the product task. Ranking among hand-picked obvious non-answers is not, and it does not discriminate between models.
 
-**Paired testing, not aggregate comparison.** All models see identical cases, so the comparison is paired. Each model is compared to the incumbent with an exact two-sided McNemar test over the discordant cases. This matters because an aggregate cannot distinguish a two-case gap from a twenty-case gap — and a two-case gap is what a marginal serving decision actually looks like. `n = 365` unique cases; the delivered file held 370 rows (see *Known defect*).
+**Paired testing, not aggregate comparison.** All models see identical cases, so the comparison is paired. Each model is compared to the incumbent with an exact two-sided McNemar test over the discordant cases. This matters because an aggregate cannot distinguish a two-case gap from a twenty-case gap — and a two-case gap is what a marginal serving decision actually looks like.
+
+**Two denominators, and the difference matters.** The harness scores every row of the file: 370 rows, and it reports `248/370 (0.670)` for the incumbent. The paired analysis keys on case id, and the file holds only **365 unique ids** — see *Known defect*, which is why. So the table below is on **365** (`248/365 = 0.679`) and the McNemar counts are on 365. The harness's own output and this table are both correct on their own basis; they differ because one counts rows and the other counts unique cases. The dedup lives in the analysis step, not the harness.
 
 ```
 p = min(1, 2 · Σ_{j=0}^{min(a_only,b_only)} C(n,j) / 2^n),  n = a_only + b_only
@@ -70,9 +72,13 @@ Worth checking any other harness that validates a per-question index set for the
 
 ## Known defect in the delivered cases
 
-The case file held 370 rows but only **365 unique case ids**: six rows shared one question text and one id while carrying six *different* expected documents, all from the same document family. At most one of the six can score correct by construction, so up to five cases are unwinnable for every model and absolute recall@1 is understated by up to ~1.4 points.
+The case file holds 370 rows but only **365 unique case ids**, and the cause is worse than a duplicated label.
 
-It hits all models identically, so no pairwise comparison or p-value in this document is affected. But the gold should be a *set* of acceptable documents, or the question deduplicated — a single expected id is the wrong shape when several documents answer equally. Reported to the corpus owners; not fixed here.
+Six rows share one id *and* one question text *and* differ only in which document they designate. Within each of those rows, **five distractor slots are byte-identical copies of the relevant document** — that pool holds 4 distinct texts across 30 slots, five of them the answer. No reranker can separate identical strings, so the designated index's rank is a lottery, not a measurement. Those six rows are unwinnable in expectation for every model. On the 365-case basis used here they collapse to a single case, so they depress the absolute numbers by well under a point rather than the ~1.4 an earlier draft of this document claimed; the paired comparisons are unaffected because every model draws the same lottery.
+
+The root cause is upstream and broader. In the question set, the template question `What legal issues were addressed in Bulletin ?, Item 8?` — a bulletin number stripped from the template — appears **14 times with 14 different expected documents**. Ids are derived from question text, so all 14 collide. A second question text appears twice. So the fix is not "dedupe one id": template questions whose placeholders were stripped need to be either regenerated with their placeholders intact or excluded, and the gold should be a **set** of acceptable documents across the whole affected family rather than one id. Fewer still: 16 of the 370 pools contain duplicate distractor texts, one with ten copies of a single text, so a nominal 30-document pool is sometimes ~20 distinct documents and ranking is easier than the slot count suggests.
+
+Reported to the corpus owners; not fixable from here, since the case file is theirs.
 
 ## Reproducing
 
@@ -91,7 +97,7 @@ LAYA_SUBFOLDER=typed-decisions EVAL_PAID="" \
 EVAL_PAID="rerank-3,rerank-3-lite" node eval/run.mjs
 ```
 
-`EVAL_PERCASE` writes `{model, id, rank, ms}` per case — ranks and timings only, no corpus text, so per-case output is safe to keep. The case file itself is not: drop it in from the private repository as `eval/golden.json` to run the real comparison.
+`EVAL_PERCASE` writes `{model, id, rank, ms}` per case. It carries no question text, no document text, and no node identifier — but `id` **is** a corpus-derived value: for the delivered file it is an md5 of the question text, so it is a stable fingerprint of a private question rather than a neutral row number. Treat the per-case file as private-repo material. If a row key is needed for auditing, a per-model rank histogram is enough to recompute every p-value in this document and leaks nothing at all. The case file itself stays out: drop it in from the private repository as `eval/golden.json` to run the real comparison.
 
 ## Serving topology
 
