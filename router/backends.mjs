@@ -1,6 +1,7 @@
-// Pure parsing of the backend catalogue — what a server advertises about its
-// models, and what a container is called — kept apart from the server so it can
-// be tested without starting one.
+// The router's pure support module: backend-catalogue parsing (what a server
+// advertises about its models, and what a container is called), the per-model
+// stats ring, and the access-log formatter. Kept apart from the server so all
+// three can be tested without starting one.
 //
 // Two shapes: TEI answers /info with the single model it serves, while
 // OpenAI-shaped servers (vLLM) list their served names under /v1/models.

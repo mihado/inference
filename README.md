@@ -37,7 +37,7 @@ Five services start by default: `router`, plus a pair for each of the two models
 | `jina-embed` | `jina-embed/compose.jina-embed.yml` | `jina-embed` (own Python runtime, non-commercial) | 8093 | 0 |
 | `omnijev` | `omnijev/compose.omnijev.yml` | `omnijev` (own Python runtime, Apache-2.0) | 8041 | 0 |
 | `julia` | `julia/compose.julia.yml` | `julia` (own Python runtime, Apache-2.0) | 8047 | 0 |
-| `ollama` | `compose.ollama.yml` | `ollama` (own runtime, beside the router, no label) | 11434 | 1 |
+| `ollama` | `ollama/compose.ollama.yml` | `ollama` (own runtime, beside the router, no label) | 11434 | 1 |
 
 | Target | Effect |
 | --- | --- |
@@ -98,6 +98,8 @@ One port must be open to the network: the router on 8100. Clients use the router
 - It normalizes `/rerank`'s Cohere `documents` to TEI's `texts`.
 
 The router reads the model of each server. It reads the TEI `/info` data, or the OpenAI `/v1/models` list of a vLLM server. It repeats the read every 30 seconds. So the router finds a new or changed server with no restart.
+
+`GET /health` reports uptime and per-model and per-backend counts — requests, errors, p50, and which replica took each one. `/healthz` is an alias for the same body. Counts are kept for the models the router serves; a request naming an unknown model is answered 404 and logged, but it does not add an entry, so the map cannot be grown by probing.
 
 Backends advertise the POST paths they serve in `/info` (`paths`), and the router unions those with its static set — a new surface routes with no router change. An advertised path routes only to the backends that advertised it, so a rolling upgrade never sends it to an un-upgraded replica. A backend that omits `paths` (TEI, vLLM) routes the static set only; malformed entries are ignored, and unlisted paths 404:
 
