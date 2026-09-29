@@ -146,7 +146,7 @@ Each optional service documents itself beside its compose file:
 
 ## Measured results
 
-The codex retrieval evaluation numbers live in [docs/evaluation.md](docs/evaluation.md): embedding models at 1024 vs 2048 dims, and the reranker bake-off, where the best local reranker adds 16 points to recall@1.
+The codex retrieval evaluation numbers live in [docs/evaluation.md](docs/evaluation.md): embedding models at 1024 vs 2048 dims, and a reranker bake-off. That table's local ordering is superseded for the serving choice — see [docs/reranker-selection.md](docs/reranker-selection.md), which records the paired comparison and the decision. The fast tier is `make eval-golden`: the same bake-off over the 105-case golden subset (`eval/`), for regression.
 
 ## Operations
 

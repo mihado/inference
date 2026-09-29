@@ -137,8 +137,11 @@ smoke: ## live smoke through the router (one inference per model kind)
 	ROUTER_URL="$(ROUTER_URL)" node scripts/smoke.mjs
 
 test: ## the unit tests (no GPU, no servers)
-	node --test router/backends.test.mjs router/dispatch.test.mjs scripts/smoke-config.test.mjs
+	node --test router/backends.test.mjs router/dispatch.test.mjs scripts/smoke-config.test.mjs eval/rank.test.mjs
 	uv run --no-project --with fastapi python py-common/stack_service_test.py
+
+eval-golden: ## reranker bake-off over the golden subset (fast regression, not a serving decision)
+	ROUTER_URL="$(ROUTER_URL)" node eval/run.mjs
 
 run: ## start a free ad-hoc TEI slot: make run MODEL=... [NAME=] [GPU=] [PORT=]
 	scripts/run.sh "$(MODEL)" $(if $(NAME),--name $(NAME)) $(if $(GPU),--gpu $(GPU)) $(if $(PORT),--port $(PORT))

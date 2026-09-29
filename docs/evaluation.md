@@ -40,3 +40,9 @@ Results:
 - The best local reranker is `Alibaba-NLP/gte-reranker-modernbert-base`. The `reranker` server runs this model.
 - Voyage `rerank-3-lite` is the best reranker. It is the MVP choice.
 - A difference of 0.002 is noise. One question of 500 causes it.
+
+## Superseded for reranker choice
+
+The local ordering above does not survive re-measurement: `ms-marco` was second here and is fourth there, `gte-multilingual-reranker-base` was last and is tied third. It was measured on a different index build against a different question selection, so treat it as a record of that build, not a standing result. The `gte > bge` direction does hold.
+
+See [reranker-selection.md](reranker-selection.md) for the paired comparison that settles the serving choice, and for the defect in the harness that made a re-measurement necessary in the first place.

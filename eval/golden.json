@@ -1,0 +1,1367 @@
+[
+  {
+    "id": "taproom-sales",
+    "query": "Can a brewer sell beer directly at the taproom?",
+    "relevant_first": true,
+    "relevant": "A brewer may sell beer on the licensed premises.",
+    "distractors": [
+      "The label must carry a health warning.",
+      "Tax returns are due quarterly.",
+      "Taproom hours end at midnight unless the county objects.",
+      "Parking for taproom patrons is regulated by the borough.",
+      "A brewer may deliver to retailers, never directly to consumers."
+    ]
+  },
+  {
+    "id": "taproom-license-class",
+    "query": "What license does a taproom need?",
+    "relevant_first": false,
+    "relevant": "A taproom requires both a manufacturer license and an on-premises license.",
+    "distractors": [
+      "A taproom needs no license if it serves no alcohol.",
+      "Taproom seating capacity is capped at fifty.",
+      "The on-premises license alone is sufficient.",
+      "Only a manufacturer license is required for taprooms.",
+      "Taprooms are exempt from background checks."
+    ]
+  },
+  {
+    "id": "shipment-refusal",
+    "query": "When may a shipment of alcohol be refused?",
+    "relevant_first": false,
+    "relevant": "The department shall refuse any shipment that lacks a certificate of compliance.",
+    "distractors": [
+      "This chapter governs the transportation of alcoholic beverages.",
+      "License renewal fees are due with the application.",
+      "A shipment may be refused only after a thirty-day warning.",
+      "Carriers must inspect shipments before transport.",
+      "The department accepts shipments without a certificate."
+    ]
+  },
+  {
+    "id": "shipment-documentation",
+    "query": "What paperwork must accompany a shipment of alcohol?",
+    "relevant_first": true,
+    "relevant": "Every shipment must carry a bill of lading and a certificate of compliance.",
+    "distractors": [
+      "A bill of lading must name the shipper.",
+      "Certificates of compliance expire after one year.",
+      "Shipments under ten gallons need no paperwork.",
+      "The bill of lading is filed with the county clerk.",
+      "Drivers must carry a copy of the certificate."
+    ]
+  },
+  {
+    "id": "distributor-renewal",
+    "query": "When must a distributor renew its license?",
+    "relevant_first": true,
+    "relevant": "Distributor licenses renew annually by June 30.",
+    "distractors": [
+      "Brewer licenses run for three years.",
+      "Late filings accrue monthly penalties.",
+      "Distributor licenses never expire.",
+      "Renewal is due on the anniversary of the original issue.",
+      "A distributor may renew at any time without penalty."
+    ]
+  },
+  {
+    "id": "distributor-territory",
+    "query": "Can a distributor sell outside its territory?",
+    "relevant_first": false,
+    "relevant": "A distributor may sell only within the territory named in its license.",
+    "distractors": [
+      "Territory size is set by the municipality.",
+      "A distributor may sell statewide with a second license.",
+      "Online sales ignore territory limits.",
+      "Distributors define their own territory at incorporation.",
+      "A territory may be amended by mutual consent of both licensees."
+    ]
+  },
+  {
+    "id": "sunday-morning",
+    "query": "May a retailer sell alcohol on Sunday morning?",
+    "relevant_first": false,
+    "relevant": "Retail sales are prohibited before noon on Sundays.",
+    "distractors": [
+      "Retail sales are permitted after noon on Sundays.",
+      "Sunday hours also bind on-premises consumption.",
+      "Sunday restrictions do not apply to package stores.",
+      "Retailers may open at eight on Sundays.",
+      "Sunday sales are allowed with a permit."
+    ]
+  },
+  {
+    "id": "sunday-liquor",
+    "query": "Which hours apply to Sunday liquor sales?",
+    "relevant_first": true,
+    "relevant": "Package stores may not sell liquor before noon or after 8pm on Sundays.",
+    "distractors": [
+      "Sunday liquor sales end at six.",
+      "Liquor stores may sell from noon until midnight on Sundays.",
+      "The Sunday window is fixed by federal law.",
+      "No Sunday restriction applies to liquor stores.",
+      "Liquor stores open an hour later on Sundays."
+    ]
+  },
+  {
+    "id": "serve-age",
+    "query": "What is the minimum age to serve alcohol?",
+    "relevant_first": true,
+    "relevant": "Servers must be at least 18 years old.",
+    "distractors": [
+      "Patrons must be 21 to purchase.",
+      "Managers must be 21.",
+      "Servers must be at least 16 with a supervisor present.",
+      "No minimum age applies to serve staff.",
+      "Server age requirements follow federal law."
+    ]
+  },
+  {
+    "id": "purchase-age",
+    "query": "At what age may someone buy alcohol here?",
+    "relevant_first": false,
+    "relevant": "A purchaser must be at least 21 and show government identification.",
+    "distractors": [
+      "A purchaser must be 18.",
+      "Purchase age is 16 with parental consent.",
+      "Age verification is waived for club members.",
+      "The purchase age follows the serving age.",
+      "No identification is required under twenty-one."
+    ]
+  },
+  {
+    "id": "id-check-records",
+    "query": "How long must ID checks be recorded?",
+    "relevant_first": true,
+    "relevant": "Age-verification records must be kept for five years.",
+    "distractors": [
+      "ID checks must be recorded in a log book.",
+      "Records are kept for two years.",
+      "There is no recordkeeping requirement for age checks.",
+      "Records are kept for the duration of the license.",
+      "The department audits age checks annually."
+    ]
+  },
+  {
+    "id": "happy-hour",
+    "query": "Are happy hour discounts allowed?",
+    "relevant_first": false,
+    "relevant": "Discounts based on time of day are prohibited.",
+    "distractors": [
+      "Coupons from manufacturers are permitted.",
+      "Volume discounts are allowed for distributors.",
+      "Happy hours may run before eight on weekdays.",
+      "Discounts of up to twenty percent are allowed.",
+      "Time-based promotions need a temporary permit."
+    ]
+  },
+  {
+    "id": "volume-discount",
+    "query": "May a bar buy spirits at a volume discount?",
+    "relevant_first": true,
+    "relevant": "Bars may not purchase below the price they pay their distributor.",
+    "distractors": [
+      "Volume discounts are prohibited for all licensees.",
+      "Bars may purchase at any price from a manufacturer.",
+      "Only package stores may buy at volume discount.",
+      "Volume discounts are capped at ten percent.",
+      "Bars must buy from the lowest-priced wholesaler."
+    ]
+  },
+  {
+    "id": "cocktail-delivery",
+    "query": "Can a restaurant deliver cocktails?",
+    "relevant_first": true,
+    "relevant": "Deliveries must be in sealed containers with food orders.",
+    "distractors": [
+      "Third-party delivery of sealed beer is allowed.",
+      "Drive-through liquor sales are banned.",
+      "Cocktails may be delivered in open containers.",
+      "Delivery of any alcoholic beverage is prohibited.",
+      "Restaurants must deliver drinks within one hour."
+    ]
+  },
+  {
+    "id": "delivery-hours",
+    "query": "When may a restaurant deliver alcohol?",
+    "relevant_first": false,
+    "relevant": "Alcohol delivery is permitted between ten in the morning and one in the morning.",
+    "distractors": [
+      "Delivery is allowed only between noon and eight.",
+      "Alcohol may be delivered at any hour.",
+      "Delivery is prohibited after midnight.",
+      "Delivery hours follow the restaurant's own posted hours.",
+      "No delivery is allowed during the day."
+    ]
+  },
+  {
+    "id": "records-retention",
+    "query": "How long must sales records be kept?",
+    "relevant_first": false,
+    "relevant": "Records must be retained for three years.",
+    "distractors": [
+      "The retention period is set by federal law.",
+      "Records must be available on request.",
+      "Sales records need no retention.",
+      "Records must be kept for seven years.",
+      "Only invoices must be retained, not the sales log."
+    ]
+  },
+  {
+    "id": "records-inspection",
+    "query": "Who may inspect a licensee's sales records?",
+    "relevant_first": true,
+    "relevant": "Any peace officer or the department may inspect records at any reasonable time.",
+    "distractors": [
+      "Only the department may inspect records.",
+      "Records are private and exempt from inspection.",
+      "Inspection requires a court order.",
+      "The licensee may refuse inspection without cause.",
+      "Inspections are limited to business hours."
+    ]
+  },
+  {
+    "id": "winery-tastings",
+    "query": "May a winery offer free tastings?",
+    "relevant_first": true,
+    "relevant": "Wineries may serve up to three one-ounce samples per visitor.",
+    "distractors": [
+      "Breweries may not serve spirits.",
+      "Tasting rooms must close by 10pm.",
+      "Free tastings are limited to two ounces per visitor.",
+      "Tastings require a paid permit.",
+      "Wineries may serve unlimited samples to members."
+    ]
+  },
+  {
+    "id": "tasting-fee",
+    "query": "May a tasting charge a fee?",
+    "relevant_first": false,
+    "relevant": "A tasting fee may be charged if the product is not otherwise sold on the premises.",
+    "distractors": [
+      "Tasting fees are prohibited entirely.",
+      "Tasting fees may not exceed five dollars.",
+      "Any fee requires a special permit.",
+      "Fees are allowed only for wine tastings.",
+      "A fee may be charged for unlimited pours."
+    ]
+  },
+  {
+    "id": "interstate-shipment",
+    "query": "Can a consumer receive wine shipped from another state?",
+    "relevant_first": false,
+    "relevant": "Direct shipment requires both states to permit it and a state shipper's license.",
+    "distractors": [
+      "In-state delivery needs no license.",
+      "Common carriers must verify age at delivery.",
+      "A consumer may always receive direct shipments.",
+      "Only licensed wholesalers may ship to consumers.",
+      "Interstate shipment is prohibited without a federal license."
+    ]
+  },
+  {
+    "id": "shipment-age-check",
+    "query": "Who must check the age at delivery?",
+    "relevant_first": true,
+    "relevant": "The licensed carrier must verify the recipient's age and obtain a signature.",
+    "distractors": [
+      "The recipient self-certifies age.",
+      "The winery verifies age before shipping.",
+      "The department verifies age at delivery.",
+      "No age check is required for shipments.",
+      "The retailer checks age before delivery."
+    ]
+  },
+  {
+    "id": "minor-penalty",
+    "query": "What is the penalty for selling to a minor?",
+    "relevant_first": true,
+    "relevant": "A first offense carries a $500 fine and possible suspension.",
+    "distractors": [
+      "A second offense doubles the fine.",
+      "Knowing violations bring criminal charges.",
+      "The penalty is a warning on first offense.",
+      "A first offense carries a $5,000 fine.",
+      "Penalties apply only to manufacturers."
+    ]
+  },
+  {
+    "id": "minor-liability",
+    "query": "Can a licensee be fined if an employee serves a minor?",
+    "relevant_first": false,
+    "relevant": "The licensee is liable for violations by any employee acting within the scope of employment.",
+    "distractors": [
+      "Only the individual employee is liable.",
+      "The licensee is liable only with proof of negligence.",
+      "Employees are never liable personally.",
+      "Liability attaches only to owners, not managers.",
+      "The licensee may be fined only after a second offense."
+    ]
+  },
+  {
+    "id": "school-ads",
+    "query": "May alcohol ads appear near schools?",
+    "relevant_first": false,
+    "relevant": "Advertising within 500 feet of a school is prohibited.",
+    "distractors": [
+      "Billboard ads require disclaimers.",
+      "Social media ads must age-gate.",
+      "Ads are prohibited within one mile of a school.",
+      "Only outdoor advertising is restricted near schools.",
+      "No advertising restriction applies near schools."
+    ]
+  },
+  {
+    "id": "outdoor-signs",
+    "query": "What size limits apply to outdoor alcohol signs?",
+    "relevant_first": true,
+    "relevant": "Outdoor signs may not exceed twenty square feet in area.",
+    "distractors": [
+      "Outdoor signs are unlimited in size.",
+      "Signs may not exceed one hundred square feet.",
+      "The limit is measured by height alone.",
+      "Size limits apply only to illuminated signs.",
+      "Outdoor signage is prohibited entirely."
+    ]
+  },
+  {
+    "id": "keg-registration",
+    "query": "Must keg buyers register?",
+    "relevant_first": true,
+    "relevant": "Purchasers of kegs over four gallons must show ID and sign a receipt.",
+    "distractors": [
+      "Keg deposits are refundable.",
+      "Taps may be rented with the keg.",
+      "Kegs under four gallons need registration.",
+      "Registration is required for any container over one gallon.",
+      "Keg purchases are exempt from recordkeeping."
+    ]
+  },
+  {
+    "id": "container-sizes",
+    "query": "Which container sizes may be sold to consumers?",
+    "relevant_first": false,
+    "relevant": "Consumers may purchase containers up to 192 ounces of malt beverage.",
+    "distractors": [
+      "The limit is 32 ounces.",
+      "Any container size may be sold.",
+      "The limit applies only to wine.",
+      "Spirits are limited to 128 ounces.",
+      "Container size is not regulated."
+    ]
+  },
+  {
+    "id": "byob",
+    "query": "Can diners bring their own wine?",
+    "relevant_first": false,
+    "relevant": "Restaurants may allow BYOB with a corkage permit.",
+    "distractors": [
+      "Corkage fees are unregulated.",
+      "Open container laws apply to vehicles.",
+      "BYOB is allowed without any permit.",
+      "BYOB is prohibited at all licensed premises.",
+      "Only private clubs may allow BYOB."
+    ]
+  },
+  {
+    "id": "corkage-fee",
+    "query": "May a restaurant charge a corkage fee?",
+    "relevant_first": true,
+    "relevant": "A corkage fee may be charged and does not require a permit.",
+    "distractors": [
+      "Corkage fees require a special permit.",
+      "Corkage fees are capped at ten dollars.",
+      "Corkage fees are prohibited.",
+      "Corkage fees count as the restaurant's wine sales.",
+      "Only wine retailers may charge a corkage fee."
+    ]
+  },
+  {
+    "id": "growlers",
+    "query": "May a bar fill a customer's growler?",
+    "relevant_first": true,
+    "relevant": "Growlers must be filled from approved taps and sealed.",
+    "distractors": [
+      "Growler fills count as off-premises sales.",
+      "Customers may bring any container.",
+      "Growlers may be filled only by the customer.",
+      "Growler fills are unlimited in size.",
+      "Growler filling requires a separate license."
+    ]
+  },
+  {
+    "id": "growler-container",
+    "query": "What container may a growler be filled into?",
+    "relevant_first": false,
+    "relevant": "The container must be clean, of a size the licensee approves, and sealed before leaving.",
+    "distractors": [
+      "Any plastic container may be used.",
+      "The container must be glass only.",
+      "The customer may reuse any prior container.",
+      "The container must be under one gallon.",
+      "Container rules are set by the manufacturer."
+    ]
+  },
+  {
+    "id": "farmers-markets",
+    "query": "Can breweries sell at farmers markets?",
+    "relevant_first": false,
+    "relevant": "Sales at farmers markets need a temporary permit and local approval.",
+    "distractors": [
+      "Grocery stores need no extra permit.",
+      "Market stalls must display the license.",
+      "Farmers markets are exempt from the licensing requirement.",
+      "A one-day permit suffices for the whole season.",
+      "Local approval is not required if the market is county-run."
+    ]
+  },
+  {
+    "id": "market-permit-duration",
+    "query": "How long is a farmers market permit valid?",
+    "relevant_first": true,
+    "relevant": "A market permit is valid for the calendar year.",
+    "distractors": [
+      "A market permit is valid for seven days.",
+      "Market permits never expire.",
+      "A market permit is valid for one market day.",
+      "Market permits are renewed monthly.",
+      "The permit expires at the end of the fiscal year."
+    ]
+  },
+  {
+    "id": "charity-auction",
+    "query": "Can a charity auction donated wine?",
+    "relevant_first": true,
+    "relevant": "Nonprofits may auction alcohol with a one-day charitable permit.",
+    "distractors": [
+      "Alcohol donations are tax-deductible.",
+      "Volunteers must be 21 to serve.",
+      "Charities may not auction alcohol.",
+      "A charity permit allows unlimited auctions.",
+      "Donated wine may be sold without a permit."
+    ]
+  },
+  {
+    "id": "auction-license",
+    "query": "What license does a charity need to auction wine?",
+    "relevant_first": false,
+    "relevant": "The charity needs a one-day permit for each auction event.",
+    "distractors": [
+      "Charities need no license at all.",
+      "A single annual permit covers every auction.",
+      "The permit is free and issued automatically.",
+      "Only religious organizations may hold auctions.",
+      "Auctions require the charity to hold a full retailer license."
+    ]
+  },
+  {
+    "id": "tied-house",
+    "query": "May a distributor own a bar?",
+    "relevant_first": false,
+    "relevant": "A distributor may not hold a retail interest, with narrow exceptions.",
+    "distractors": [
+      "Breweries may own taprooms.",
+      "Suppliers may advertise in bars.",
+      "A distributor may own up to one bar.",
+      "Retail interests are permitted with disclosure.",
+      "The prohibition applies only to spirits suppliers."
+    ]
+  },
+  {
+    "id": "manufacturer-taproom",
+    "query": "May a manufacturer operate a taproom?",
+    "relevant_first": true,
+    "relevant": "A manufacturer may operate a taproom on the licensed premises without a separate retailer license.",
+    "distractors": [
+      "Manufacturers may operate any number of bars.",
+      "A taproom requires a separate retailer license.",
+      "Only wholesalers may operate taprooms.",
+      "Taprooms may not be operated by any manufacturer.",
+      "A taproom counts as off-premises sales."
+    ]
+  },
+  {
+    "id": "manager-liability",
+    "query": "Is a manager liable for an overserved patron?",
+    "relevant_first": true,
+    "relevant": "A permittee is liable for injuries caused by an overserved patron.",
+    "distractors": [
+      "Bartenders must complete training.",
+      "Fines go to the permit holder.",
+      "The manager is liable only for the drink served.",
+      "Liability is limited to the patron's medical bills.",
+      "No liability attaches if the patron drove."
+    ]
+  },
+  {
+    "id": "server-training",
+    "query": "Must servers complete alcohol training?",
+    "relevant_first": false,
+    "relevant": "Servers must complete an approved alcohol awareness program within thirty days of hiring.",
+    "distractors": [
+      "Training is required once a year for all staff.",
+      "Only owners and managers need training.",
+      "Training is optional for on-premises licensees.",
+      "Servers need training only after an incident.",
+      "Training is required for all licensees every three years."
+    ]
+  },
+  {
+    "id": "label-approval",
+    "query": "Must labels be approved before sale?",
+    "relevant_first": false,
+    "relevant": "Every label needs a certificate of label approval before sale.",
+    "distractors": [
+      "Vintage dates require verification.",
+      "Health warnings follow federal size rules.",
+      "Labels need approval only for new products.",
+      "No label approval is required for malt beverages.",
+      "Approval is granted automatically on submission."
+    ]
+  },
+  {
+    "id": "label-health-warning",
+    "query": "What does the health warning on a label require?",
+    "relevant_first": true,
+    "relevant": "The warning must state that the beverage is not recommended for pregnant women, children, or those with health issues.",
+    "distractors": [
+      "The warning is required only on spirits.",
+      "The warning may be omitted for package sales.",
+      "The warning must be printed in the manufacturer's brand type.",
+      "Warnings are advisory and need not appear.",
+      "The warning is required only on imported beverages."
+    ]
+  },
+  {
+    "id": "aging-statement",
+    "query": "Is an age statement required on a wine label?",
+    "relevant_first": false,
+    "relevant": "An age statement is required only when the wine is labeled with a vintage date.",
+    "distractors": [
+      "Every wine label must carry an age statement.",
+      "Age statements are never required.",
+      "Age statements apply to spirits only.",
+      "Any vintage reference requires an age statement of at least two years.",
+      "Age statements must be approved by the department."
+    ]
+  },
+  {
+    "id": "batch-invoice",
+    "query": "What must a batch invoice list?",
+    "relevant_first": true,
+    "relevant": "A batch invoice lists product, quantity, and price for each sale, with a total.",
+    "distractors": [
+      "A batch invoice must be numbered sequentially.",
+      "Invoices are filed with the county clerk monthly.",
+      "Only the total amount is required on a batch invoice.",
+      "A batch invoice replaces the sales log.",
+      "Batch invoices are exempt from recordkeeping."
+    ]
+  },
+  {
+    "id": "sales-report-frequency",
+    "query": "How often must sales be reported to the department?",
+    "relevant_first": false,
+    "relevant": "Sales must be reported monthly by the tenth of the following month.",
+    "distractors": [
+      "Sales must be reported quarterly.",
+      "Reporting is annual for small licensees.",
+      "Sales need no reporting beyond the annual renewal.",
+      "Reports are due within fifteen days of month end.",
+      "Only manufacturers must report sales."
+    ]
+  },
+  {
+    "id": "operating-hours-change",
+    "query": "Must hours changes be approved?",
+    "relevant_first": false,
+    "relevant": "A change in hours requires notice to the department at least ten days in advance.",
+    "distractors": [
+      "Hours changes need no notice.",
+      "Notice is due within ten days after the change.",
+      "Only reductions in hours require notice.",
+      "The department must be notified within ten days of a change.",
+      "Hours changes are approved automatically."
+    ]
+  },
+  {
+    "id": "closed-hours-notice",
+    "query": "How far ahead must a licensee report closing for a holiday?",
+    "relevant_first": true,
+    "relevant": "Closure on a legal holiday must be reported ten days in advance.",
+    "distractors": [
+      "Holiday closures require no advance notice.",
+      "Notice is due the day before the closure.",
+      "Holiday closures are prohibited.",
+      "Only retailers must report holiday closures.",
+      "Notice is required only for closures over 24 hours."
+    ]
+  },
+  {
+    "id": "duplicate-license",
+    "query": "May one person hold two licenses at the same address?",
+    "relevant_first": false,
+    "relevant": "One person may hold at most one license per premises, absent an approved exception.",
+    "distractors": [
+      "Unlimited licenses per address are allowed.",
+      "Two licenses per address are always permitted.",
+      "The restriction applies only to manufacturer licenses.",
+      "Exceptions are never granted.",
+      "The limit is three licenses per address."
+    ]
+  },
+  {
+    "id": "change-ownership",
+    "query": "What is required when a license changes hands?",
+    "relevant_first": true,
+    "relevant": "The license remains in force for thirty days after a change of ownership if the department is notified.",
+    "distractors": [
+      "A new license must be obtained before any transfer.",
+      "The license lapses on the day of transfer.",
+      "Notification is due within ninety days of transfer.",
+      "A change of ownership requires a new hearing.",
+      "Notification is optional."
+    ]
+  },
+  {
+    "id": "temporary-license",
+    "query": "Can a license be issued temporarily?",
+    "relevant_first": false,
+    "relevant": "A temporary license may run up to ninety days while a permanent application is pending.",
+    "distractors": [
+      "Temporary licenses run up to one year.",
+      "Temporary licenses are never issued.",
+      "A temporary license is limited to thirty days.",
+      "Temporary licenses require a public hearing.",
+      "A temporary license may be renewed indefinitely."
+    ]
+  },
+  {
+    "id": "unlicensed-sales-reporting",
+    "query": "Must a non-licensee report alcohol purchases?",
+    "relevant_first": true,
+    "relevant": "A non-licensee purchasing alcohol must report the purchase in writing within seventy-two hours.",
+    "distractors": [
+      "No reporting is required for non-licensees.",
+      "The report is due at the time of purchase.",
+      "Only purchases over one case require reporting.",
+      "The department publishes a mandatory registry.",
+      "Reporting applies only to licensed wholesalers."
+    ]
+  },
+  {
+    "id": "venue-endorsement",
+    "query": "Who may endorse an event for a temporary permit?",
+    "relevant_first": false,
+    "relevant": "The local governing body may endorse an event for a temporary permit.",
+    "distractors": [
+      "The applicant self-endorses the event.",
+      "Any three neighbors may endorse an event.",
+      "The state tourism office endorses events.",
+      "Only county officials may endorse events.",
+      "Endorsement is not required for a temporary permit."
+    ]
+  },
+  {
+    "id": "security-officer",
+    "query": "When is a licensed security officer required?",
+    "relevant_first": true,
+    "relevant": "A licensed security officer is required at any event expecting more than five hundred people.",
+    "distractors": [
+      "A security officer is required above one thousand people.",
+      "Security officers are never required.",
+      "Only bars with dance floors need a security officer.",
+      "The threshold is two hundred people.",
+      "The licensee may use unlicensed security staff."
+    ]
+  },
+  {
+    "id": "outdoor-ad-distance",
+    "query": "How far must outdoor alcohol advertising be from a school?",
+    "relevant_first": false,
+    "relevant": "Outdoor alcohol advertising must be at least five hundred feet from a school.",
+    "distractors": [
+      "The distance is one thousand feet.",
+      "There is no distance requirement for schools.",
+      "The distance is measured from the nearest residence.",
+      "The requirement applies only to billboards.",
+      "The distance is set by each municipality."
+    ]
+  },
+  {
+    "id": "internet-ad-restriction",
+    "query": "What limits apply to advertising alcohol online?",
+    "relevant_first": true,
+    "relevant": "Internet advertising must be age-gated and may not be placed where minors are the audience.",
+    "distractors": [
+      "Internet advertising is prohibited entirely.",
+      "Online ads need no age gating.",
+      "Only social media ads are restricted.",
+      "Internet ads require a permit.",
+      "The restriction applies only to music streaming services."
+    ]
+  },
+  {
+    "id": "self-service-store",
+    "query": "May alcohol be sold from self-service shelving?",
+    "relevant_first": false,
+    "relevant": "Self-service display of spirits is prohibited; beer and wine are permitted.",
+    "distractors": [
+      "All self-service display is prohibited.",
+      "Self-service is permitted for every category.",
+      "Only spirits are permitted in self-service.",
+      "Self-service requires a staff member present.",
+      "Self-service is permitted for minors."
+    ]
+  },
+  {
+    "id": "loyalty-card-alcohol",
+    "query": "May loyalty cards be used to buy alcohol?",
+    "relevant_first": true,
+    "relevant": "Alcohol may not be purchased with a loyalty-card discount.",
+    "distractors": [
+      "Loyalty cards are permitted for package stores.",
+      "Discounts up to ten percent are allowed with a card.",
+      "Loyalty cards are prohibited for all purchases.",
+      "Cards may be used only for wine.",
+      "A loyalty card counts as a discount coupon."
+    ]
+  },
+  {
+    "id": "returns-without-receipt",
+    "query": "Can alcohol be returned without a receipt?",
+    "relevant_first": false,
+    "relevant": "Alcohol may not be returned; consumers must go through the department for defective product.",
+    "distractors": [
+      "Returns are allowed within seven days with identification.",
+      "Unopened packages may be returned at any store.",
+      "Returns are allowed with a card.",
+      "Defective product may be exchanged by any retailer.",
+      "Returns are permitted within thirty days."
+    ]
+  },
+  {
+    "id": "package-definition",
+    "query": "Does package mean the original container?",
+    "relevant_first": true,
+    "relevant": "Package means the container in which the beverage was placed by the manufacturer or packager.",
+    "distractors": [
+      "Package means any sealed container regardless of source.",
+      "Package includes growlers and flasks.",
+      "Package means the retailer's display case.",
+      "Package is defined by bottle volume only.",
+      "Package means the original label design."
+    ]
+  },
+  {
+    "id": "consumption-venue-prohibition",
+    "query": "Where is consumption of alcohol prohibited?",
+    "relevant_first": false,
+    "relevant": "Consumption is prohibited in any public place not licensed for on-premises sales.",
+    "distractors": [
+      "Consumption is prohibited in all public parks and plazas.",
+      "Consumption is allowed on private property without a license.",
+      "Consumption is prohibited only in schools.",
+      "Consumption in a vehicle is always permitted for the owner.",
+      "No public-place restriction exists."
+    ]
+  },
+  {
+    "id": "open-container-law",
+    "query": "What does the open container law prohibit?",
+    "relevant_first": true,
+    "relevant": "It prohibits an open container of alcohol in a vehicle or public place.",
+    "distractors": [
+      "It prohibits drinking in a licensed establishment.",
+      "It prohibits storing alcohol in a vehicle overnight.",
+      "It applies only to commercial vehicles.",
+      "It prohibits sealed containers in public places.",
+      "It applies only to under-21 drivers."
+    ]
+  },
+  {
+    "id": "manufacturer-report",
+    "query": "What must a manufacturer report each month?",
+    "relevant_first": false,
+    "relevant": "A manufacturer reports gallons produced and shipped by brand to each licensed wholesaler.",
+    "distractors": [
+      "A manufacturer reports total revenue monthly.",
+      "A manufacturer reports only spirits volumes.",
+      "Manufacturers file no monthly report.",
+      "A manufacturer reports the number of employees.",
+      "A manufacturer reports only its license renewals."
+    ]
+  },
+  {
+    "id": "brand-registration",
+    "query": "Must a brand be registered before sale?",
+    "relevant_first": true,
+    "relevant": "Each brand must be registered with the department before its first sale in the state.",
+    "distractors": [
+      "Brands need no registration.",
+      "Only imported brands require registration.",
+      "Registration occurs automatically on shipment.",
+      "Brands are registered with the county.",
+      "Only wine brands require registration."
+    ]
+  },
+  {
+    "id": "spirits-warehouse",
+    "query": "Where may spirits be warehoused?",
+    "relevant_first": false,
+    "relevant": "Spirits may be warehoused only in a licensed warehouse on the licensee's premises.",
+    "distractors": [
+      "Spirits may be warehoused at any bonded facility.",
+      "Warehousing in a bonded federal warehouse is prohibited.",
+      "Spirits may be warehoused off premises with notice.",
+      "Only wine may be warehoused off premises.",
+      "Spirits may be stored in any temperature-controlled unit."
+    ]
+  },
+  {
+    "id": "warehouse-bond",
+    "query": "What security must a spirits warehouse provide?",
+    "relevant_first": true,
+    "relevant": "The warehouse must post a bond and be secured so that spirits cannot be removed without authorization.",
+    "distractors": [
+      "The warehouse must post a liability insurance policy.",
+      "Security requires only locked doors.",
+      "The bond amount is set by the manufacturer.",
+      "No security is required for bonded warehouses.",
+      "The warehouse must be on a fenced acre."
+    ]
+  },
+  {
+    "id": "amendment-process",
+    "query": "How is a statute amended?",
+    "relevant_first": false,
+    "relevant": "An amendment requires two readings on separate days in each house and a majority of the members present.",
+    "distractors": [
+      "An amendment requires a simple majority of votes cast.",
+      "An amendment requires three readings in one day.",
+      "The governor may amend the statute by proclamation.",
+      "An amendment requires a two-thirds majority.",
+      "Any member may amend the statute by floor motion."
+    ]
+  },
+  {
+    "id": "preemption-authority",
+    "query": "Can a local ordinance conflict with the state alcohol law?",
+    "relevant_first": false,
+    "relevant": "A local ordinance may be stricter but never conflict with or excuse compliance with state law.",
+    "distractors": [
+      "Local ordinances may override the state law.",
+      "Local ordinances may be stricter or looser at will.",
+      "Only home-rule municipalities may pass alcohol ordinances.",
+      "A conflicting local ordinance is void in its entirety.",
+      "Local ordinances are entirely preempted."
+    ]
+  },
+  {
+    "id": "exemption-county-authority",
+    "query": "May a county restrict Sunday sales?",
+    "relevant_first": true,
+    "relevant": "A county may impose stricter local limits, including a Sunday sales ban.",
+    "distractors": [
+      "Counties may not restrict Sunday sales.",
+      "Only cities may restrict Sunday sales.",
+      "A county restriction is void under preemption.",
+      "Counties may restrict only spirits sales on Sunday.",
+      "Local Sunday bans require a statewide waiver."
+    ]
+  },
+  {
+    "id": "dry-county-status",
+    "query": "How does a county become dry?",
+    "relevant_first": false,
+    "relevant": "A county becomes dry when its voters approve prohibition at a general election.",
+    "distractors": [
+      "A county becomes dry by state declaration.",
+      "A county becomes dry when a petition is filed.",
+      "A county becomes dry by governor proclamation.",
+      "A dry county is a permanent designation.",
+      "A county becomes dry by court order."
+    ]
+  },
+  {
+    "id": "last-call-time",
+    "query": "When is last call?",
+    "relevant_first": true,
+    "relevant": "Last call is at one in the morning by default, though local law may set an earlier hour.",
+    "distractors": [
+      "Last call is at midnight unless the county sets otherwise.",
+      "Last call is at two in the morning.",
+      "There is no last call in this state.",
+      "Last call is at three in the afternoon on Sunday.",
+      "The licensee chooses its own last call."
+    ]
+  },
+  {
+    "id": "closing-time-license",
+    "query": "What closing time may a license seek?",
+    "relevant_first": false,
+    "relevant": "A license may apply for closing as late as three in the morning with local approval.",
+    "distractors": [
+      "Closing as late as four in the morning is allowed by state law.",
+      "No license may close after midnight.",
+      "Closing after two in the morning is prohibited everywhere.",
+      "Closing hours are set by the licensee without approval.",
+      "Local approval is not required for a late closing."
+    ]
+  },
+  {
+    "id": "seasonal-license",
+    "query": "What is a seasonal license good for?",
+    "relevant_first": true,
+    "relevant": "A seasonal license authorizes sales during a fixed period of no more than six months.",
+    "distractors": [
+      "A seasonal license is permanent once issued.",
+      "A seasonal license runs for one year.",
+      "A seasonal license permits sales at any time in the first year.",
+      "A seasonal license cannot be renewed.",
+      "A seasonal license covers only cider."
+    ]
+  },
+  {
+    "id": "temporary-permit-duration",
+    "query": "How long is an event permit valid?",
+    "relevant_first": true,
+    "relevant": "An event permit authorizes sales on the licensed days listed in the application.",
+    "distractors": [
+      "An event permit is valid for the calendar year.",
+      "An event permit expires after thirty days.",
+      "Event permits are renewable indefinitely.",
+      "An event permit covers every event at the venue.",
+      "Event permits are valid only during December."
+    ]
+  },
+  {
+    "id": "membership-club-requirement",
+    "query": "What must a private club post at its entrance?",
+    "relevant_first": false,
+    "relevant": "A private club must post its club permit and hours at the entrance.",
+    "distractors": [
+      "A private club must post no sign at all.",
+      "A private club must post the names of its members.",
+      "A private club need not be licensed if it charges dues.",
+      "A private club posts its members list annually.",
+      "A private club need not post anything at its entrance."
+    ]
+  },
+  {
+    "id": "guest-limit-club",
+    "query": "May a private club admit non-members?",
+    "relevant_first": true,
+    "relevant": "A private club may admit guests if the club's charter allows it and no fee is charged for the alcohol.",
+    "distractors": [
+      "A private club may not admit non-members.",
+      "A private club may admit any guest at any time.",
+      "Guest admission is unlimited for clubs over fifty members.",
+      "A private club may admit guests for a cover charge.",
+      "Guest admission requires a day pass."
+    ]
+  },
+  {
+    "id": "membership-club-licensing",
+    "query": "Is a club license the same as a retailer license?",
+    "relevant_first": false,
+    "relevant": "A club license is separate from a retailer license and does not authorize sales to the public.",
+    "distractors": [
+      "A club license is a type of retailer license.",
+      "A club license authorizes sales to the public.",
+      "A club license requires no separate application.",
+      "A club license is issued automatically with membership.",
+      "A club license may be used at any licensed premises."
+    ]
+  },
+  {
+    "id": "brewery-tour-limit",
+    "query": "May a brewery give samples on a tour?",
+    "relevant_first": true,
+    "relevant": "A brewery may give a small sample during a tour, but may not sell the product there.",
+    "distractors": [
+      "A brewery may sell on any tour stop.",
+      "No samples may be given during a tour.",
+      "Tours may serve up to four ounces per visitor.",
+      "A brewery may give samples only to adults registered at the door.",
+      "Tour samples are limited to two per person."
+    ]
+  },
+  {
+    "id": "high-alcohol-content",
+    "query": "Are there extra rules for high-alcohol-content beverages?",
+    "relevant_first": false,
+    "relevant": "A beverage above twenty-five percent alcohol by volume requires a permit and may not be sold in grocery stores.",
+    "distractors": [
+      "Beverages above thirty percent alcohol are prohibited entirely.",
+      "No extra rules apply above twenty-five percent.",
+      "High-alcohol beverages may be sold in any store.",
+      "A high-alcohol beverage needs no permit but a record.",
+      "High-alcohol beverages are restricted to on-premises sales."
+    ]
+  },
+  {
+    "id": "product-tax-schedule",
+    "query": "When is the product tax due?",
+    "relevant_first": true,
+    "relevant": "The product tax is due on the fifteenth day of the month following the sale.",
+    "distractors": [
+      "The product tax is due at the time of sale.",
+      "The product tax is due with the annual renewal.",
+      "The product tax is due at the end of the fiscal year.",
+      "The product tax is paid weekly.",
+      "The product tax is due on the first of the sale month."
+    ]
+  },
+  {
+    "id": "tax-exempt-institution",
+    "query": "Is a nonprofit exempt from the product tax?",
+    "relevant_first": false,
+    "relevant": "A nonprofit is exempt only for alcohol it purchases and uses for a purpose other than resale.",
+    "distractors": [
+      "Every nonprofit is exempt from the product tax.",
+      "Nonprofits pay a reduced rate.",
+      "The exemption applies to sales at charity auctions.",
+      "Nonprofits file for an annual exemption.",
+      "No nonprofit may claim the exemption."
+    ]
+  },
+  {
+    "id": "out-of-state-wine",
+    "query": "May a restaurant buy wine from an out-of-state retailer?",
+    "relevant_first": true,
+    "relevant": "A licensee may buy only from a licensed wholesaler in this state, except as a temporary permit allows.",
+    "distractors": [
+      "A licensee may buy directly from any licensed retailer.",
+      "Direct shipment to a restaurant is always allowed.",
+      "Out-of-state wholesalers may sell to local licensees.",
+      "A restaurant may buy from a consumer.",
+      "Only wine may be bought out of state."
+    ]
+  },
+  {
+    "id": "consumer-import-limit",
+    "query": "May a consumer bring alcohol into the state?",
+    "relevant_first": false,
+    "relevant": "A consumer may bring a personal amount of one gallon or less for personal use.",
+    "distractors": [
+      "A consumer may bring any amount for personal use.",
+      "A consumer may bring up to five gallons.",
+      "A consumer may bring nothing into the state.",
+      "The limit is one case per person.",
+      "A consumer may bring alcohol only by a licensed carrier."
+    ]
+  },
+  {
+    "id": "license-surrender",
+    "query": "What happens to a license when a business closes?",
+    "relevant_first": true,
+    "relevant": "The licensee must surrender the license to the department within fifteen days of closing.",
+    "distractors": [
+      "The license lapses automatically after one year of inactivity.",
+      "The licensee must return the license within ninety days.",
+      "A closing license may be sold to a successor.",
+      "The license stays valid until its renewal date.",
+      "No action is needed when a business closes."
+    ]
+  },
+  {
+    "id": "premises-change",
+    "query": "May a licensee move to a new address?",
+    "relevant_first": false,
+    "relevant": "A licensee may relocate within the same county, or elsewhere with department approval before moving.",
+    "distractors": [
+      "A licensee may relocate anywhere with no approval.",
+      "A licensee may never move.",
+      "Relocation outside the county is automatic.",
+      "The license follows the licensee to any premises.",
+      "A relocation requires a new hearing in every case."
+    ]
+  },
+  {
+    "id": "complaint-investigation",
+    "query": "How does the department investigate a complaint?",
+    "relevant_first": true,
+    "relevant": "An investigator inspects the premises, reviews records, and issues findings within forty-five days.",
+    "distractors": [
+      "A complaint is resolved by letter within thirty days.",
+      "Investigations are limited to a single inspection.",
+      "The department must hold a public hearing for every complaint.",
+      "A complaint may be resolved without an inspection.",
+      "Investigations are referred to the attorney general."
+    ]
+  },
+  {
+    "id": "emergency-suspension",
+    "query": "Can the department suspend a license in an emergency?",
+    "relevant_first": false,
+    "relevant": "The department may suspend a license without a hearing where the licensee's continued operation presents an immediate threat.",
+    "distractors": [
+      "A suspension requires notice and a hearing first.",
+      "The department may suspend a license for any reason.",
+      "Only a court may suspend a license.",
+      "Suspensions last no more than five days.",
+      "An emergency suspension is permanent."
+    ]
+  },
+  {
+    "id": "open-to-public-test",
+    "query": "What makes a tasting room 'open to the public'?",
+    "relevant_first": true,
+    "relevant": "A tasting room is open to the public when any adult may enter without a club membership or invitation.",
+    "distractors": [
+      "A tasting room is public when it advertises online.",
+      "A tasting room is public when it charges admission.",
+      "A tasting room is public when it serves food.",
+      "A tasting room is never open to the public.",
+      "A tasting room is public when it has a bar."
+    ]
+  },
+  {
+    "id": "retailer-hours-posting",
+    "query": "Must a retailer post its hours?",
+    "relevant_first": false,
+    "relevant": "A retailer must post its hours at both entrances and keep them accurate.",
+    "distractors": [
+      "A retailer need not post hours.",
+      "Hours must be posted only on the website.",
+      "A retailer must post hours in the window only.",
+      "Hours are verified only during an inspection.",
+      "A retailer may post hours for the previous week."
+    ]
+  },
+  {
+    "id": "drive-through-sales",
+    "query": "May a bar sell alcohol at a drive-through window?",
+    "relevant_first": true,
+    "relevant": "No on-premises license may sell alcohol through a drive-through window.",
+    "distractors": [
+      "Drive-through sales are allowed at all bars.",
+      "Drive-through sales need a permit.",
+      "Drive-through sales are allowed for package stores.",
+      "Drive-through sales are allowed if the driver is twenty-one.",
+      "Drive-through sales are limited to beer."
+    ]
+  },
+  {
+    "id": "catering-license",
+    "query": "When does a caterer need a license?",
+    "relevant_first": true,
+    "relevant": "A caterer needs its own license whenever it serves alcohol away from its licensed premises.",
+    "distractors": [
+      "A caterer needs no license if it holds a caterer's permit.",
+      "A caterer is covered by the venue's license for all events.",
+      "Only wine service requires a caterer license.",
+      "A caterer must be licensed in every county it serves.",
+      "A caterer may serve up to fifty people unlicensed."
+    ]
+  },
+  {
+    "id": "caterer-permit-scope",
+    "query": "What does a temporary caterer's permit allow?",
+    "relevant_first": false,
+    "relevant": "A temporary caterer's permit allows one event lasting no more than four days.",
+    "distractors": [
+      "A temporary caterer's permit allows the whole year.",
+      "A temporary caterer's permit allows unlimited events.",
+      "A temporary caterer's permit allows retail sales.",
+      "A temporary caterer's permit is valid for ten years.",
+      "A temporary caterer's permit allows home delivery."
+    ]
+  },
+  {
+    "id": "permittee-record-duty",
+    "query": "What must a permittee do with a police report?",
+    "relevant_first": true,
+    "relevant": "A permittee must report a serious injury or death on the premises to the department within twenty-four hours.",
+    "distractors": [
+      "A permittee need not report injuries.",
+      "A permittee reports only to local police.",
+      "A permittee must report within seventy-two hours.",
+      "A permittee reports annually with the renewal.",
+      "Only deaths must be reported."
+    ]
+  },
+  {
+    "id": "premises-inspection-frequency",
+    "query": "How often are licensed premises inspected?",
+    "relevant_first": false,
+    "relevant": "Licensed premises are inspected at least once a year, and more often at the department's discretion.",
+    "distractors": [
+      "Licensed premises are inspected once every three years.",
+      "Inspection is only upon complaint.",
+      "Licensed premises are inspected monthly.",
+      "Inspection frequency is set by each licensee.",
+      "Licensed premises are never inspected without cause."
+    ]
+  },
+  {
+    "id": "window-display-requirement",
+    "query": "What must a package store display?",
+    "relevant_first": true,
+    "relevant": "A package store must display its license in the window or near the entrance.",
+    "distractors": [
+      "A package store must display its hours in the window.",
+      "A package store must display all brands it carries.",
+      "A package store need not display its license.",
+      "A package store must display a price list.",
+      "A package store must display the county seal."
+    ]
+  },
+  {
+    "id": "license-surrender-value",
+    "query": "Is a surrendered license refundable?",
+    "relevant_first": false,
+    "relevant": "A surrendered license is not refundable; the fee is earned by the state.",
+    "distractors": [
+      "A surrendered license is refundable on a pro-rata basis.",
+      "The fee is refunded if the licensee relocates.",
+      "Half the fee is refunded on surrender.",
+      "A surrendered license is refundable within thirty days.",
+      "The fee is refunded only for temporary licenses."
+    ]
+  },
+  {
+    "id": "renewal-late-effect",
+    "query": "What happens if a license renewal is late?",
+    "relevant_first": true,
+    "relevant": "A late renewal carries a fifty-dollar penalty, and the license continues in force during the grace period.",
+    "distractors": [
+      "A late renewal voids the license immediately.",
+      "A late renewal doubles the annual fee.",
+      "A late renewal carries no penalty.",
+      "A late renewal cancels the license at once.",
+      "A late renewal requires a new application."
+    ]
+  },
+  {
+    "id": "administrative-judgment",
+    "query": "What is an administrative judgment?",
+    "relevant_first": false,
+    "relevant": "It is a finding of violation and fine issued by the department without a court trial.",
+    "distractors": [
+      "It is a criminal conviction entered by a judge.",
+      "It is a permit revocation.",
+      "It is a civil lawsuit filed by a competitor.",
+      "It is an advisory opinion.",
+      "It is a federal injunction."
+    ]
+  },
+  {
+    "id": "hearing-request",
+    "query": "Can a licensee contest an administrative judgment?",
+    "relevant_first": true,
+    "relevant": "A licensee may request a de novo hearing within thirty days of the judgment.",
+    "distractors": [
+      "A licensee cannot contest an administrative judgment.",
+      "A licensee may appeal only after paying a full fine.",
+      "A licensee has seven days to respond.",
+      "A licensee may contest only judgments over a thousand dollars.",
+      "A licensee must file suit in county court."
+    ]
+  },
+  {
+    "id": "keg-deposit-requirement",
+    "query": "Does the state require a keg deposit?",
+    "relevant_first": false,
+    "relevant": "The state sets no keg deposit; the deposit is a commercial matter between the parties.",
+    "distractors": [
+      "A keg deposit of five dollars is required by statute.",
+      "The deposit is set at ten percent of contents.",
+      "A keg deposit is required for all malt beverages.",
+      "The state requires a deposit on returnable containers.",
+      "The deposit is refundable only at the original retailer."
+    ]
+  },
+  {
+    "id": "deposit-refund-window",
+    "query": "Who returns a container deposit?",
+    "relevant_first": true,
+    "relevant": "A deposit is refunded by the seller of the beverage, not the state.",
+    "distractors": [
+      "A deposit is refunded by the state.",
+      "A deposit is refunded by the wholesaler.",
+      "A deposit is refunded by the county recycling office.",
+      "A deposit is refunded by the manufacturer.",
+      "A deposit is refunded by any licensed retailer."
+    ]
+  },
+  {
+    "id": "water-alcohol-mix",
+    "query": "May a licensee sell a drink that mixes water with alcohol?",
+    "relevant_first": true,
+    "relevant": "A mix of more than one and a half percent alcohol by volume is a beverage and needs the same license as any other.",
+    "distractors": [
+      "Any water-alcohol mix is exempt from licensing.",
+      "A water mix below seven percent is unrestricted.",
+      "A mix is regulated as a soft drink below five percent.",
+      "A mix may be sold from a package store without a license.",
+      "A mix is regulated only if it exceeds twenty percent."
+    ]
+  },
+  {
+    "id": "malt-beverage-definition",
+    "query": "What is a malt beverage?",
+    "relevant_first": false,
+    "relevant": "A malt beverage is a beer or ale of no more than five percent alcohol by volume.",
+    "distractors": [
+      "A malt beverage may reach eight percent alcohol.",
+      "A malt beverage is any beverage made from grain.",
+      "A malt beverage is a spirit distilled from grain.",
+      "A malt beverage includes all fermented drinks.",
+      "A malt beverage is capped at three percent."
+    ]
+  },
+  {
+    "id": "sparkling-wine-tax",
+    "query": "How is sparkling wine taxed?",
+    "relevant_first": true,
+    "relevant": "Sparkling wine is taxed on a flat per-gallon basis, not by volume of alcohol.",
+    "distractors": [
+      "Sparkling wine is taxed by alcohol content like spirits.",
+      "Sparkling wine is exempt from product tax.",
+      "Sparkling wine is taxed per bottle at a higher rate.",
+      "Sparkling wine pays a county surtax only.",
+      "Sparkling wine is taxed as a malt beverage."
+    ]
+  },
+  {
+    "id": "cocktail-tax-class",
+    "query": "Which tax class covers a mixed cocktail sold in a bar?",
+    "relevant_first": false,
+    "relevant": "A cocktail sold for consumption on premises is taxed under the on-premises rate for the base spirit.",
+    "distractors": [
+      "A cocktail is taxed at the retail package rate.",
+      "A cocktail is taxed by its total alcohol content.",
+      "A cocktail is untaxed if under two ounces.",
+      "A cocktail is taxed only when a brand is named.",
+      "A cocktail is taxed at the lowest applicable rate."
+    ]
+  },
+  {
+    "id": "permit-duration-industry",
+    "query": "How long is an industry license valid?",
+    "relevant_first": true,
+    "relevant": "An industry license is valid for one year and may be renewed without a new hearing.",
+    "distractors": [
+      "An industry license is valid for two years.",
+      "An industry license is permanent.",
+      "An industry license must be re-heard annually.",
+      "An industry license is valid for ninety days.",
+      "An industry license cannot be renewed."
+    ]
+  },
+  {
+    "id": "direct-shipment-signature",
+    "query": "What must a consumer sign for a direct shipment?",
+    "relevant_first": false,
+    "relevant": "The consumer must sign a form certifying age and accept the shipment in person.",
+    "distractors": [
+      "A signature is not required for direct shipments.",
+      "The consumer signs a copy of the retail license.",
+      "A signature is required only for spirits.",
+      "The consumer signs electronically at checkout.",
+      "The consumer signs for the first delivery only."
+    ]
+  }
+]
