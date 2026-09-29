@@ -16,7 +16,7 @@ import os
 import threading
 import traceback
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -66,13 +66,21 @@ def info_response(
     loaded: bool,
     model_id: str,
     max_client_batch_size: int,
-    extra: Optional[Dict[str, Any]] = None,
+    extra: Optional[Callable[[], Dict[str, Any]]] = None,
 ) -> Any:
     """TEI's /info shape. The router reads model_id from it and registers the
-    container under that one model, on the next 30s scan."""
+    container under that one model, on the next 30s scan.
+
+    `extra` is a callable, not a dict, so a field read off the model is only
+    touched once the model exists. Building it eagerly turns the loading window
+    into a 500 instead of a 503."""
     if not loaded:
         return error(503, "the model is still loading", "model_loading")
-    return {"model_id": model_id, **(extra or {}), "max_client_batch_size": max_client_batch_size}
+    return {
+        "model_id": model_id,
+        **(extra() if extra is not None else {}),
+        "max_client_batch_size": max_client_batch_size,
+    }
 
 
 def check_model_match(body: Dict[str, Any], served_id: str, keys: Tuple[str, ...] = ("model", "model_id")) -> Any:

@@ -44,7 +44,7 @@ class InfoResponseTest(unittest.TestCase):
             loaded=True,
             model_id="m",
             max_client_batch_size=32,
-            extra={"device": "cuda:0", "paths": ["/rerank"]},
+            extra=lambda: {"device": "cuda:0", "paths": ["/rerank"]},
         )
         self.assertEqual(
             response,

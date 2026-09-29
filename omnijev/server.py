@@ -20,10 +20,8 @@
 #
 # Apache-2.0 code and weights: unlike the Jina profiles, this service may serve.
 #
-# Readiness lives at /info, not /health: the router only registers a backend
 # whose /info names a model, so a model that is still loading is simply not
-# routable, while /health stays green for the compose healthcheck. A model that
-# fails to load exits the process, the way the TEI and vLLM services do.
+
 import os
 import shutil
 import tempfile
@@ -87,17 +85,13 @@ app = stack_service.make_app(_load, "omnijev-load")
 
 @app.get("/info")
 def info():
-    if model is None:
-        return stack_service.error(503, "the model is still loading", "model_loading")
-    # TEI's /info shape. The router reads model_id from it and registers this
-    # container under that one model, on the next 30s scan.
-    return {
-        "model_id": SERVED_ID,
-        "model_dtype": str(model.dtype).replace("torch.", ""),
-        "device": str(model.dev),
-        "max_client_batch_size": MAX_QUESTIONS,
-        "paths": ["/v1/systemone"],
-    }
+    return stack_service.info_response(
+        loaded=model is not None,
+        model_id=SERVED_ID,
+        max_client_batch_size=MAX_QUESTIONS,
+        extra=lambda: {"model_dtype": str(model.dtype).replace("torch.", ""),
+        "device": str(model.dev), "paths": ["/v1/systemone"]},
+    )
 
 
 @app.post("/v1/systemone")
