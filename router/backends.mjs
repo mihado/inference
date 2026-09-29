@@ -76,9 +76,8 @@ export function modelAdvertises(urls, pathsByBase, path) {
   return Array.isArray(urls) && urls.some((base) => pathsByBase.get(base)?.has(path) === true);
 }
 
-/** Whether any backend at all advertises this path. A path belongs to the
- * backend, not to a model, so deciding that a path is unknown must not depend
- * on the request body carrying a model id. */
+/** Whether any backend advertises this path. Asked of the backends, not of the
+ * request body, so a modelless request cannot 404 a served path. */
 export function pathServed(pathsByBase, path) {
   for (const paths of pathsByBase.values()) {
     if (paths.has(path)) return true;
@@ -94,11 +93,9 @@ export function infoMaxClientBatchSize(info) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 }
 
-/** The document list a rerank body carries, under either name it travels
- * under (TEI's `texts`, Cohere's `documents`), or undefined. Returns the value
- * rather than a count so the caller can also reject a list that is not an
- * array; a count alone cannot distinguish "no list" from "a list of the wrong
- * type", and the bound check and the body rewrite must agree on which. */
+/** The rerank document list, under either name (`texts`, `documents`), or
+ * undefined. The value, not a count: a non-array list must be refused, and a
+ * count cannot tell it from no list. */
 export function rerankDocuments(body) {
   return body?.texts ?? body?.documents;
 }

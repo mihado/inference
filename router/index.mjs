@@ -209,9 +209,8 @@ function sendError(response, status, message, code) {
   sendJson(response, status, { error: { message, type: code, code } });
 }
 
-// Symbols, not strings: a body of `"aborted"` parses to that same string, so a
-// string sentinel is indistinguishable from a client payload and a valid one
-// silently stopped the router from ever answering.
+// Symbols: a body of `"aborted"` parses to that same string, so a string
+// sentinel collides with a client payload.
 const BODY_TOO_LARGE = Symbol("body-too-large");
 const BODY_ABORTED = Symbol("body-aborted");
 
@@ -324,15 +323,8 @@ async function handle(request, response) {
     const started = Date.now();
     const body = await readBody(request);
     const model = body?.model ?? body?.model_id;
-    // A backend may advertise paths beyond the static set in /info (`paths`,
-    // see README.md "Router"); anything else 404s exactly as before — the
-    // model is read first only to ask the catalogue, and the 400s below are
-    // unchanged.
-    // A backend may advertise paths beyond the static set in /info (`paths`,
-    // see README.md "Router"). Whether a path exists is a question about the
-    // backends, not about the body: asking it per-model meant a request whose
-    // body carried no model was answered 404 for the path when the path was
-    // served, hiding the real fault.
+    // A path belongs to the backends, not to the body: deciding it per-model
+    // answered 404 for served paths whose request carried no model.
     if (!POST_PATHS.has(path) && !pathServed(backendPaths, path)) {
       return sendError(response, 404, "Not found.", "invalid_request_error");
     }

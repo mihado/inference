@@ -370,7 +370,6 @@ test("an unknown model id is answered 404 and never enters /health stats", async
   for (const model of ["nope", "probe-junk-1", "probe-junk-2", "__proto__", "constructor", "toString"]) {
     assert.equal(Object.hasOwn(health.stats, model), false, `${model} must not be recorded`);
   }
-  // The router is still serving, and the prototype is intact.
   assert.equal((await (await fetch(`${routerBase}/v1/models`)).json()).object, "list");
   const ok = await post("/v1/embeddings", { model: "test-embed", input: "x" });
   assert.equal(ok.status, 200);
@@ -396,11 +395,8 @@ test("a malformed body on an advertised path is 400, not a 404 for the path", as
     assert.equal(status, 400, String(payload));
     assert.equal(body.error.type, "invalid_request_error", String(payload));
   }
-  // The path itself is still routed when the body is well formed and names a
-  // model that serves it.
   const ok = await post("/v1/novel", { model: "test-paths", anything: true });
   assert.equal(ok.status, 200);
-  // A path no backend advertises is still a 404 whatever the body says.
   const missing = await post("/v1/never", { model: "test-paths" });
   assert.equal(missing.status, 404);
 });
