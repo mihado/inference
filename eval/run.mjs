@@ -12,7 +12,7 @@
 // once EVAL_V1_COMPAT is set and the adapter below is filled in — until
 // then they SKIP with the reason. Quality deltas never fail the run;
 // request errors do. Dependency-free (global fetch only).
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -32,7 +32,13 @@ const SHARED = resolveIds(
   process.env,
   loadDotEnv(join(HERE, "..", ".env")),
 );
-const LOCAL_KNOWN = [...SHARED.RERANK_KNOWN, SHARED.LAYA_ID];
+// Every reranker the stack can serve, from the compose ids. EVAL_LOCAL
+// narrows it to a subset, so re-measuring the new arrivals does not re-run the
+// whole field: an id nothing advertises is skipped, never failed.
+const LOCAL_KNOWN = (process.env.EVAL_LOCAL ?? [...SHARED.RERANK_KNOWN, SHARED.LAYA_ID].join(","))
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean);
 // Paid models and the endpoint that serves them; the adapter needs your
 // v1-compat call shape (URL, auth, body) before these run.
 const PAID_KNOWN = (process.env.EVAL_PAID ?? "rerank-3-lite,jev-latest").split(",").map((id) => id.trim()).filter(Boolean);
@@ -58,27 +64,73 @@ async function post(path, payload) {
   return { status: response.status, body: await response.json().catch(() => null), ms: Date.now() - started };
 }
 
-/** One rerank through the product gateway; same response shape as ours. */
+// Cohere's trial tier answers 10 rerank requests a minute, and the gateway
+// answers a cooled key pool with 429 `insufficient_quota`. A tight loop trips
+// both, and one refusal used to abandon the whole model — so a rate limit cost
+// a column instead of a pause. Calls are spaced per model, and a throttled or
+// transient answer is retried. The wait sits outside the measured window, so
+// mean_ms stays the provider's latency and not our own throttle.
+const MIN_INTERVAL_MS = Number(process.env.EVAL_MIN_INTERVAL_MS ?? 0);
+const MAX_ATTEMPTS = Number(process.env.EVAL_ATTEMPTS ?? 4);
+const lastSentAt = new Map();
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** `Retry-After` in ms, or null when absent or unparsable. */
+function retryAfterMs(response) {
+  const raw = response.headers.get("retry-after");
+  if (raw === null) return null;
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : null;
+}
+
+/** One rerank through the product gateway; same response shape as ours.
+ * Retries what a shared lab or a provider can answer transiently: a throttled
+ * request, any 5xx, or a dropped socket. A 502 with a non-JSON body is the
+ * edge in front of the gateway answering — a tight loop meets it on every
+ * deploy — and it is not a statement about the model's quality. */
 async function postV1(payload) {
-  const started = Date.now();
-  const response = await fetch(`${V1_COMPAT}/v1/rerank`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${V1_KEY}`,
-      "content-type": "application/json",
-      "user-agent": "curl/8.0",
-    },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  return { status: response.status, body: await response.json().catch(() => null), ms: Date.now() - started };
+  const gap = MIN_INTERVAL_MS - (Date.now() - (lastSentAt.get(payload.model) ?? 0));
+  if (gap > 0) await sleep(gap);
+  for (let attempt = 1; ; attempt += 1) {
+    const started = Date.now();
+    lastSentAt.set(payload.model, started);
+    const last = attempt >= MAX_ATTEMPTS;
+    try {
+      const response = await fetch(`${V1_COMPAT}/v1/rerank`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${V1_KEY}`,
+          "content-type": "application/json",
+          "user-agent": "curl/8.0",
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      const body = await response.json().catch(() => null);
+      if (!(response.status === 429 || response.status >= 500) || last) {
+        return { status: response.status, body, ms: Date.now() - started };
+      }
+      console.log(`  wait - ${payload.model}: ${response.status}, retry ${attempt}/${MAX_ATTEMPTS - 1}`);
+      await sleep(retryAfterMs(response) ?? 5_000 * attempt);
+    } catch (error) {
+      if (last) throw error;
+      console.log(
+        `  wait - ${payload.model}: ${String(error?.cause ?? error).slice(0, 90)}, retry ${attempt}/${MAX_ATTEMPTS - 1}`,
+      );
+      await sleep(5_000 * attempt);
+    }
+  }
 }
 
 /** Rank (1-based) of the relevant doc, tolerant of both response shapes. */
 function relevantRank(body, relPos, count) {
   const results = Array.isArray(body) ? body : body?.results;
   if (!Array.isArray(results) || results.length !== count) return null;
-  const order = [...results.map((entry) => entry?.index)].sort();
+  // Numeric sort. A bare .sort() orders indices as strings, so at 11 or more
+  // documents it yields 0,1,10,11,...,2 and every well-formed response is
+  // rejected as malformed. Six-document pools cannot catch this.
+  const order = [...results.map((entry) => entry?.index)].sort((a, b) => a - b);
   if (order.join(",") !== [...Array(count).keys()].join(",")) return null;
   const scores = results.map((entry) => entry?.relevance_score ?? entry?.score);
   if (!scores.every(Number.isFinite)) return null;
@@ -97,6 +149,9 @@ if (advertised.size === 0) {
 
 let failures = 0;
 const rows = [];
+// Per-case ranks, so two rerankers can be compared pairwise rather than by
+// aggregate: an aggregate cannot tell a 2-case gap from a 20-case one.
+const perCase = [];
 
 async function score(id, send) {
   let top1 = 0;
@@ -124,6 +179,7 @@ async function score(id, send) {
     }
     if (rank === 1) top1 += 1;
     else if (process.env.EVAL_VERBOSE !== undefined) console.log(`miss - ${id} / ${item.id}: rank ${rank}`);
+    perCase.push({ model: id, id: item.id, rank, ms: result.ms });
     mrr += 1 / rank;
     ms += result.ms;
     ran += 1;
@@ -167,4 +223,8 @@ for (const row of rows) {
   }
 }
 console.log(failures > 0 ? `\neval: ${failures} request failures` : "\neval: clean");
+if (process.env.EVAL_PERCASE !== undefined) {
+  writeFileSync(join(HERE, process.env.EVAL_PERCASE), perCase.map((row) => JSON.stringify(row)).join("\n") + "\n");
+  console.log(`per-case rows: ${perCase.length} -> ${process.env.EVAL_PERCASE}`);
+}
 process.exit(failures > 0 ? 1 : 0);
