@@ -9,10 +9,6 @@
 #                        discovered exactly like a TEI slot — no router change.
 #   POST /v1/decisions   the native API ({state, questions}) for guardrails,
 #                        triage, moderation. The router forwards it verbatim.
-#
-# /info names a model, so a model that is still loading is simply not routable,
-# while /health stays green for the compose healthcheck (see TUNING.md,
-# shows an exit code the way the TEI and vLLM services do.
 
 import os
 import threading
@@ -87,8 +83,11 @@ def info():
         loaded=agent is not None,
         model_id=SERVED_ID,
         max_client_batch_size=MAX_TEXTS,
-        extra=lambda: {"model_dtype": str(agent.dtype).replace("torch.", ""),
-        "device": str(agent.device), "paths": ["/rerank", "/v1/decisions"]},
+        extra=lambda: {
+            "model_dtype": str(agent.dtype).replace("torch.", ""),
+            "device": str(agent.device),
+            "paths": ["/rerank", "/v1/decisions"],
+        },
     )
 
 

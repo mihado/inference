@@ -22,8 +22,6 @@
 # state/question/option truncation are refused, not silently truncated.
 #
 # Apache-2.0 code and weights: unlike the Jina profiles, this service may serve.
-#
-# whose /info names a model, so a model that is still loading is simply not
 
 import os
 import sys
@@ -93,7 +91,10 @@ def info():
         loaded=model is not None,
         model_id=SERVED_ID,
         max_client_batch_size=MAX_QUESTIONS,
-        extra=lambda: {"device": _device(), "paths": ["/v1/predict"]},
+        extra=lambda: {
+            "device": _device(),
+            "paths": ["/v1/predict"],
+        },
     )
 
 

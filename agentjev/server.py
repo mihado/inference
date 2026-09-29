@@ -18,11 +18,6 @@
 # returns the exact upstream response shape. This file owns only the bootstrap
 # (weights, skeleton, wrapped checkpoint — all idempotent, all into the shared
 # HF cache) and the stack surfaces. No outer lock: the engine locks internally.
-#
-# /info names a model, so a model that is still loading is simply not routable,
-# while /health stays green for the compose healthcheck. A model that fails to
-# load exits the process, so the container shows an exit code the way the TEI
-# and vLLM services do.
 
 import os
 from typing import Any, Dict, Optional
@@ -94,8 +89,11 @@ def info():
         loaded=engine is not None,
         model_id=SERVED_ID,
         max_client_batch_size=MAX_TEXTS,
-        extra=lambda: {"model_dtype": "bfloat16",
-        "device": engine.device, "paths": ["/rerank", "/api/evaluate"]},
+        extra=lambda: {
+            "model_dtype": "bfloat16",
+            "device": engine.device,
+            "paths": ["/rerank", "/api/evaluate"],
+        },
     )
 
 

@@ -23,11 +23,6 @@
 #                           the model re-normalizes the shortened vector.
 #
 # Non-commercial model (CC-BY-NC-4.0): local dev and eval only, never serving.
-#
-# /info names a model, so a model that is still loading is simply not routable,
-# while /health stays green for the compose healthcheck. A model that fails to
-# load exits the process, so the container shows an exit code the way the TEI
-# and vLLM services do.
 
 import os
 import threading
@@ -96,8 +91,11 @@ def info():
         loaded=model is not None,
         model_id=SERVED_ID,
         max_client_batch_size=MAX_TEXTS,
-        extra=lambda: {"model_dtype": "bfloat16",
-        "device": str(model.device), "paths": ["/v1/embeddings"]},
+        extra=lambda: {
+            "model_dtype": "bfloat16",
+            "device": str(model.device),
+            "paths": ["/v1/embeddings"],
+        },
     )
 
 
