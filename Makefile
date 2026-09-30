@@ -137,7 +137,7 @@ smoke: ## live smoke through the router (one inference per model kind)
 	ROUTER_URL="$(ROUTER_URL)" node scripts/smoke.mjs
 
 test: ## the unit tests (no GPU, no servers)
-	node --test router/backends.test.mjs router/dispatch.test.mjs scripts/smoke-config.test.mjs scripts/compose-files.test.mjs eval/rank.test.mjs
+	node --test router/backends.test.mjs router/dispatch.test.mjs scripts/smoke-config.test.mjs scripts/compose-files.test.mjs eval/rank.test.mjs eval/compare.test.mjs
 	uv run --no-project --with fastapi python py-common/stack_service_test.py
 	uv run --no-project --with fastapi --with httpx python py-common/services_test.py
 

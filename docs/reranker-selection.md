@@ -91,6 +91,7 @@ The private corpus is not in this repository, so the case file cannot be committ
 - [`../eval/run.mjs`](../eval/run.mjs) — the runner: every advertised reranker through the router, paid models through the gateway
 - [`../eval/rank.mjs`](../eval/rank.mjs) — the scorer, where the sort defect lived
 - [`../eval/rank.test.mjs`](../eval/rank.test.mjs) — its tests, including the 30-document regression; runs in `make test`
+- [`../eval/compare.mjs`](../eval/compare.mjs) — turns per-case ranks into the table above: recall, MRR, and an exact paired McNemar per model
 - `../eval/golden.json` — the 105-case suite in this repo, superseded by the real-corpus file but still the fast gate (`make eval-golden`)
 
 ```bash
@@ -106,7 +107,16 @@ LAYA_SUBFOLDER=typed-decisions EVAL_PAID="" \
 EVAL_PAID="rerank-3,rerank-3-lite" node eval/run.mjs
 ```
 
-`EVAL_PERCASE` writes `{model, id, rank, ms}` per case. It carries no question text, no document text, and no node identifier — but `id` **is** a corpus-derived value: for the delivered file it is an md5 of the question text, so it is a stable fingerprint of a private question rather than a neutral row number. Treat the per-case file as private-repo material. If a row key is needed for auditing, a per-model rank histogram is enough to recompute every p-value in this document and leaks nothing at all. The case file itself stays out: drop it in from the private repository as `eval/golden.json` to run the real comparison.
+`EVAL_PERCASE` writes `{model, id, rank, ms}` per case; `eval/compare.mjs` reads those files and prints the comparison:
+
+```bash
+node eval/compare.mjs percase.jsonl percase-voyage.jsonl \
+  --ref Alibaba-NLP/gte-reranker-modernbert-base
+```
+
+It reports a duplicate case id rather than collapsing it silently, which is how the denominator in the table above was left unexplained for a while. The p-values are exact and uncorrected for the number of comparisons; read them against `0.05 / comparisons` for a family-wise claim.
+
+It carries no question text, no document text, and no node identifier — but `id` **is** a corpus-derived value: for the delivered file it is an md5 of the question text, so it is a stable fingerprint of a private question rather than a neutral row number. Treat the per-case file as private-repo material. If a row key is needed for auditing, a per-model rank histogram is enough to recompute every p-value in this document and leaks nothing at all. The case file itself stays out: drop it in from the private repository as `eval/golden.json` to run the real comparison.
 
 ## Serving topology
 
