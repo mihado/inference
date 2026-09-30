@@ -17,9 +17,10 @@
 # into the shared HF cache, and the package is imported off the snapshot path.
 # There is no separate code repo to clone and no PyPI package to install.
 #
-# state is text only (Julia is not multimodal, unlike OmniJev); each question
-# carries 2-20 options. Strict encoding is on: marker injection and any
-# state/question/option truncation are refused, not silently truncated.
+# state is text only (Julia is not multimodal, unlike OmniJev). Each question is
+# {type, instructions, criteria} - choice | noul | score; see julia/README.md.
+# Strict encoding is on: marker injection and any state/question/option
+# truncation are refused, not silently truncated.
 #
 # Apache-2.0 code and weights: unlike the Jina profiles, this service may serve.
 
