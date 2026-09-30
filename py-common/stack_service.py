@@ -16,7 +16,7 @@ import os
 import threading
 import traceback
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -66,13 +66,18 @@ def info_response(
     loaded: bool,
     model_id: str,
     max_client_batch_size: int,
-    extra: Optional[Dict[str, Any]] = None,
+    extra: Optional[Callable[[], Dict[str, Any]]] = None,
 ) -> Any:
-    """TEI's /info shape. The router reads model_id from it and registers the
-    container under that one model, on the next 30s scan."""
+    """TEI's /info shape. `extra` is a callable so model fields are only read
+    once the model exists; built eagerly, the loading window 500s instead of
+    answering 503."""
     if not loaded:
         return error(503, "the model is still loading", "model_loading")
-    return {"model_id": model_id, **(extra or {}), "max_client_batch_size": max_client_batch_size}
+    return {
+        "model_id": model_id,
+        **(extra() if extra is not None else {}),
+        "max_client_batch_size": max_client_batch_size,
+    }
 
 
 def check_model_match(body: Dict[str, Any], served_id: str, keys: Tuple[str, ...] = ("model", "model_id")) -> Any:
@@ -124,8 +129,9 @@ def decode_data_url(url: str, max_bytes: int = 25_000_000) -> Tuple[Optional[byt
     header, separator, payload = url.partition(",")
     if not url.startswith("data:") or separator == "" or ";base64" not in header:
         return None, "Only base64 'data:' URLs are accepted; no outbound fetch."
+    # Base64 text, so this bounds characters (~3/4 of that decoded).
     if len(payload) > max_bytes:
-        return None, "The image data exceeds %d bytes." % max_bytes
+        return None, "The image data exceeds %d base64 characters." % max_bytes
     try:
         return base64.b64decode(payload, validate=True), None
     except (binascii.Error, ValueError):

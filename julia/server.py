@@ -17,16 +17,13 @@
 # into the shared HF cache, and the package is imported off the snapshot path.
 # There is no separate code repo to clone and no PyPI package to install.
 #
-# state is text only (Julia is not multimodal, unlike OmniJev); each question
-# carries 2-20 options. Strict encoding is on: marker injection and any
-# state/question/option truncation are refused, not silently truncated.
+# state is text only (Julia is not multimodal, unlike OmniJev). Each question is
+# {type, instructions, criteria} - choice | noul | score; see julia/README.md.
+# Strict encoding is on: marker injection and any state/question/option
+# truncation are refused, not silently truncated.
 #
 # Apache-2.0 code and weights: unlike the Jina profiles, this service may serve.
-#
-# Readiness lives at /info, not /health: the router only registers a backend
-# whose /info names a model, so a model that is still loading is simply not
-# routable, while /health stays green for the compose healthcheck. A model that
-# fails to load exits the process, the way the TEI and vLLM services do.
+
 import os
 import sys
 import threading
@@ -91,16 +88,15 @@ app = stack_service.make_app(_load, "julia-load")
 
 @app.get("/info")
 def info():
-    if model is None:
-        return stack_service.error(503, "the model is still loading", "model_loading")
-    # TEI's /info shape. The router reads model_id from it and registers this
-    # container under that one model, on the next 30s scan.
-    return {
-        "model_id": SERVED_ID,
-        "device": _device(),
-        "max_client_batch_size": MAX_QUESTIONS,
-        "paths": ["/v1/predict"],
-    }
+    return stack_service.info_response(
+        loaded=model is not None,
+        model_id=SERVED_ID,
+        max_client_batch_size=MAX_QUESTIONS,
+        extra=lambda: {
+            "device": _device(),
+            "paths": ["/v1/predict"],
+        },
+    )
 
 
 @app.post("/v1/predict")

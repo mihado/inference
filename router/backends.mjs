@@ -1,6 +1,4 @@
-// Pure parsing of the backend catalogue — what a server advertises about its
-// models, and what a container is called — kept apart from the server so it can
-// be tested without starting one.
+// Router support: catalogue parsing, the stats ring, the access-log formatter.
 //
 // Two shapes: TEI answers /info with the single model it serves, while
 // OpenAI-shaped servers (vLLM) list their served names under /v1/models.
@@ -76,6 +74,15 @@ export function modelAdvertises(urls, pathsByBase, path) {
   return Array.isArray(urls) && urls.some((base) => pathsByBase.get(base)?.has(path) === true);
 }
 
+/** Whether any backend advertises this path. Asked of the backends, not of the
+ * request body, so a modelless request cannot 404 a served path. */
+export function pathServed(pathsByBase, path) {
+  for (const paths of pathsByBase.values()) {
+    if (paths.has(path)) return true;
+  }
+  return false;
+}
+
 /** The client batch bound a backend reports in /info, or null when it reports
  * none. This is the authoritative source: a client that knows the bound
  * chunks to it instead of guessing another provider's number. */
@@ -84,12 +91,11 @@ export function infoMaxClientBatchSize(info) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 }
 
-/** The number of documents a body asks a reranker to score, or null when the
- * shape carries no document list. `texts` and `documents` are the two names
- * the same field travels under (TEI and Cohere). */
-export function rerankDocumentCount(body) {
-  const list = body?.texts ?? body?.documents;
-  return Array.isArray(list) ? list.length : null;
+/** The rerank document list, under either name (`texts`, `documents`), or
+ * undefined. The value, not a count: a non-array list must be refused, and a
+ * count cannot tell it from no list. */
+export function rerankDocuments(body) {
+  return body?.texts ?? body?.documents;
 }
 
 /** The smallest bound across a model's backends — a client must respect the
@@ -138,13 +144,18 @@ function tally(record, status, ms, error) {
  * objects throughout, so the structure serializes to JSON untouched. */
 export function recordStat(models, model, backend, status, ms) {
   const error = status >= 500 || backend === "-";
-  let entry = models[model];
+  let entry = Object.hasOwn(models, model) ? models[model] : undefined;
   if (entry === undefined) {
-    entry = models[model] = { requests: 0, errors: 0, latencies: [], backends: {} };
+    entry = models[model] = {
+      requests: 0,
+      errors: 0,
+      latencies: [],
+      backends: Object.create(null),
+    };
   }
   tally(entry, status, ms, error);
   if (backend !== "-") {
-    let sub = entry.backends[backend];
+    let sub = Object.hasOwn(entry.backends, backend) ? entry.backends[backend] : undefined;
     if (sub === undefined) {
       sub = entry.backends[backend] = { requests: 0, errors: 0, latencies: [] };
     }
@@ -160,9 +171,9 @@ export function p50(latencies) {
 
 /** The /health stats view: counts plus p50, without the raw samples. */
 export function summarizeStats(models) {
-  const out = {};
+  const out = Object.create(null);
   for (const [model, entry] of Object.entries(models)) {
-    const backends = {};
+    const backends = Object.create(null);
     for (const [base, sub] of Object.entries(entry.backends)) {
       backends[base] = { requests: sub.requests, errors: sub.errors, p50_ms: p50(sub.latencies) };
     }

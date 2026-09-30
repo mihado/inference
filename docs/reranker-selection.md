@@ -110,6 +110,6 @@ EVAL_PAID="rerank-3,rerank-3-lite" node eval/run.mjs
 
 ## Serving topology
 
-Local rerankers are TEI (`text-embeddings-inference:86-1.9.1`) behind the router on `:8100`, all advertising `max_client_batch_size = 64` — above the ~30 documents per request, so the bound never bound. The four `rerankers`-profile models sit on GPU 0; the incumbent `reranker` pair is in the default stack. Paid models go through the gateway's `/v1/rerank` with Cohere's `documents` field rather than TEI's `texts`, and need a curl-like user-agent.
+The TEI rerankers (`text-embeddings-inference:86-1.9.1`) behind the router on `:8100` advertise `max_client_batch_size = 64`, and the Python services 64 except `agentjev` at 32 — all above the ~30 documents per request, so the bound never bound here. The bound is per model class, not one number: rerankers are 64, embedders 128. The four `rerankers`-profile models sit on GPU 0; the incumbent `reranker` pair is in the default stack. Paid models go through the gateway's `/v1/rerank` with Cohere's `documents` field rather than TEI's `texts`, and need a curl-like user-agent.
 
 See [operations.md](operations.md) for bringing the profile models up and for the batch-token gotchas that make a pool overflow.

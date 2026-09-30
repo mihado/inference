@@ -31,7 +31,7 @@ x-qwen: &qwen
     - --dtype
     - float16
     - --max-client-batch-size
-    - "128"
+    - "${MAX_EMBED_BATCH_SIZE:-128}"
     - --max-batch-tokens
     - "8192"
 

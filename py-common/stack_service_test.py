@@ -44,7 +44,7 @@ class InfoResponseTest(unittest.TestCase):
             loaded=True,
             model_id="m",
             max_client_batch_size=32,
-            extra={"device": "cuda:0", "paths": ["/rerank"]},
+            extra=lambda: {"device": "cuda:0", "paths": ["/rerank"]},
         )
         self.assertEqual(
             response,
@@ -124,10 +124,8 @@ class DecodeDataUrlTest(unittest.TestCase):
                 self.assertTrue(refusal)
 
     def test_oversize_refused_before_decoding(self):
-        # Valid base64, so the second half (same payload, default cap) really
-        # decodes. "QQ==" repeated is not: the padding mid-string fails
-        # validate=True, which made this test assert a decode that can never
-        # happen and left the suite red.
+        # Must be valid base64: "QQ==" repeated carries mid-string padding
+        # and fails validate=True, which is what left this suite red.
         url = "data:image/png;base64,%s" % ("QUJD" * 100)
         raw, refusal = stack_service.decode_data_url(url, max_bytes=10)
         self.assertIsNone(raw)

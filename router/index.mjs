@@ -19,7 +19,7 @@
 import { createServer, request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
 
-import { accessLine, addBackend, backendName, eligibleBackends, infoMaxClientBatchSize, infoPaths, minClientBatchSize, modelAdvertises, openAiModelIds, pickBackend, recordStat, rerankDocumentCount, setBackendPaths, summarizeStats, teiModelId } from "./backends.mjs";
+import { accessLine, addBackend, backendName, eligibleBackends, infoMaxClientBatchSize, infoPaths, minClientBatchSize, openAiModelIds, pathServed, pickBackend, recordStat, rerankDocuments, setBackendPaths, summarizeStats, teiModelId } from "./backends.mjs";
 
 const PORT = Number(process.env.PORT ?? 80);
 const BACKENDS = (process.env.BACKENDS ?? "")
@@ -50,7 +50,7 @@ let backendPaths = new Map();
 let backendBatch = new Map();
 /** model id -> request/error counts plus p50 latencies, per model and per
  * backend, since boot. Unknown-model probes ("-") are logged but not kept. */
-const stats = {};
+const stats = Object.create(null);
 const startedAt = Date.now();
 /** model id -> how many requests it has been asked for. Kept outside the scan, so
  * a rescan does not reset the rotation. */
@@ -193,7 +193,7 @@ function backendRequest(path, body) {
   if (path === "/rerank" || path === "/v1/rerank") {
     return {
       path: "/rerank",
-      body: { query: body.query, texts: body.texts ?? body.documents, model: body.model ?? body.model_id },
+      body: { query: body.query, texts: rerankDocuments(body), model: body.model ?? body.model_id },
     };
   }
   return { path, body };
@@ -209,11 +209,16 @@ function sendError(response, status, message, code) {
   sendJson(response, status, { error: { message, type: code, code } });
 }
 
+// Symbols: a body of `"aborted"` parses to that same string, so a string
+// sentinel collides with a client payload.
+const BODY_TOO_LARGE = Symbol("body-too-large");
+const BODY_ABORTED = Symbol("body-aborted");
+
 async function readBody(request) {
   // Fast path: a declared length over the cap never needs reading.
   if (Number(request.headers["content-length"]) > MAX_BODY_BYTES) {
     request.resume(); // drain: destroying the socket would kill the 413 too
-    return "too-large";
+    return BODY_TOO_LARGE;
   }
   const chunks = [];
   let size = 0;
@@ -222,12 +227,13 @@ async function readBody(request) {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
         request.resume();
-        return "too-large";
+        return BODY_TOO_LARGE;
       }
       chunks.push(chunk);
     }
   } catch {
-    return "aborted"; // client left mid-body; nothing to answer on a dead socket
+    // client left mid-body; nothing to answer on a dead socket
+    return BODY_ABORTED;
   }
   if (chunks.length === 0) return null;
   try {
@@ -317,23 +323,18 @@ async function handle(request, response) {
     const started = Date.now();
     const body = await readBody(request);
     const model = body?.model ?? body?.model_id;
-    // A backend may advertise paths beyond the static set in /info (`paths`,
-    // see README.md "Router"); anything else 404s exactly as before — the
-    // model is read first only to ask the catalogue, and the 400s below are
-    // unchanged.
-    const isStatic = POST_PATHS.has(path);
-    const advertised =
-      typeof model === "string" && modelAdvertises(modelBackend.get(model), backendPaths, path);
-    if (!isStatic && !advertised) {
+    // A path belongs to the backends, not to the body: deciding it per-model
+    // answered 404 for served paths whose request carried no model.
+    if (!POST_PATHS.has(path) && !pathServed(backendPaths, path)) {
       return sendError(response, 404, "Not found.", "invalid_request_error");
     }
-    const log = (model, backend, status) => {
-      const ms = Date.now() - started;
-      if (model !== "-") recordStat(stats, model, backend, status, ms);
+    const isStatic = POST_PATHS.has(path);
+    const log = (model, backend, status, record = model !== "-", ms = Date.now() - started) => {
+      if (record) recordStat(stats, model, backend, status, ms);
       console.log(accessLine({ method: "POST", path, model, backend, status, ms }));
     };
-    if (body === "aborted") return;
-    if (body === "too-large") {
+    if (body === BODY_ABORTED) return;
+    if (body === BODY_TOO_LARGE) {
       log("-", "-", 413);
       return sendError(response, 413, "Request body too large.", "invalid_request_error");
     }
@@ -351,15 +352,20 @@ async function handle(request, response) {
     }
     const backend = await resolveBackend(model, path, isStatic);
     if (backend === undefined) {
-      log(model, "-", 404);
+      log(model, "-", 404, false);
       return sendError(response, 404, `No backend serves model '${model}'.`, "model_not_found");
     }
     // Fail fast on an over-bound request instead of letting the backend
     // answer 400 with its own wording. The bound is the one advertised above,
     // so the error teaches the client the same number /v1/models does.
     if (path === "/rerank" || path === "/v1/rerank") {
+      const list = rerankDocuments(body);
+      if (list !== undefined && !Array.isArray(list)) {
+        log(model, backend, 400);
+        return sendError(response, 400, "A rerank request carries a document list.", "invalid_request_error");
+      }
       const bound = minClientBatchSize(modelBackend.get(model), backendBatch);
-      const count = rerankDocumentCount(body);
+      const count = Array.isArray(list) ? list.length : null;
       if (bound !== null && count !== null && count > bound) {
         log(model, backend, 413);
         return sendJson(response, 413, {
@@ -374,8 +380,7 @@ async function handle(request, response) {
     }
     const upstream = backendRequest(path, body);
     const { status, ms } = await proxy(response, backend, upstream.path, upstream.body);
-    recordStat(stats, model, backend, status, ms);
-    console.log(accessLine({ method: "POST", path, model, backend, status, ms }));
+    log(model, backend, status, model !== "-", ms);
     return;
   }
 

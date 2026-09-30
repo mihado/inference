@@ -12,12 +12,7 @@
 #                        change.
 #
 # Non-commercial model (CC-BY-NC-4.0): local dev and eval only, never serving.
-#
-# Readiness lives at /info, not /health: the router only registers a backend whose
-# /info names a model, so a model that is still loading is simply not routable,
-# while /health stays green for the compose healthcheck. A model that fails to
-# load exits the process, so the container shows an exit code the way the TEI
-# and vLLM services do.
+
 import os
 import threading
 from typing import Any, Dict, List, Optional
@@ -57,17 +52,16 @@ app = stack_service.make_app(_load, "jina-load")
 
 @app.get("/info")
 def info():
-    if model is None:
-        return stack_service.error(503, "the model is still loading", "model_loading")
-    # TEI's /info shape. The router reads model_id from it and registers this
-    # container under that one model, on the next 30s scan.
-    return {
-        "model_id": SERVED_ID,
-        "model_dtype": "bfloat16",
-        "device": str(next(model.parameters()).device),
-        "max_client_batch_size": MAX_TEXTS,
-        "paths": ["/rerank"],
-    }
+    return stack_service.info_response(
+        loaded=model is not None,
+        model_id=SERVED_ID,
+        max_client_batch_size=MAX_TEXTS,
+        extra=lambda: {
+            "model_dtype": "bfloat16",
+            "device": str(next(model.parameters()).device),
+            "paths": ["/rerank"],
+        },
+    )
 
 
 @app.post("/rerank")
@@ -86,7 +80,7 @@ def rerank(body: Dict[str, Any]):
     try:
         with MODEL_LOCK:
             out = model.rerank(query, texts)
-    except (ValueError, TypeError, RuntimeError) as exc:
+    except (ValueError, KeyError, TypeError, RuntimeError, OSError) as exc:
         return stack_service.error(400, str(exc), "invalid_request_error")
     results: List[Dict[str, Any]] = [
         {"index": int(item["index"]), "relevance_score": round(float(item["relevance_score"]), 4)}

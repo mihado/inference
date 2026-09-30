@@ -16,7 +16,7 @@ import {
   p50,
   pickBackend,
   recordStat,
-  rerankDocumentCount,
+  rerankDocuments,
   setBackendPaths,
   summarizeStats,
   teiModelId,
@@ -107,14 +107,46 @@ test("minClientBatchSize is the strictest replica, null when none report", () =>
   assert.equal(minClientBatchSize([], byBase), null);
 });
 
-test("rerankDocumentCount reads either field name, else null", () => {
-  assert.equal(rerankDocumentCount({ texts: ["a", "b"] }), 2);
-  assert.equal(rerankDocumentCount({ documents: ["a"] }), 1);
-  assert.equal(rerankDocumentCount({ texts: ["a"], documents: ["a", "b"] }), 1);
-  assert.equal(rerankDocumentCount({ texts: [] }), 0);
-  assert.equal(rerankDocumentCount({ texts: "a" }), null);
-  assert.equal(rerankDocumentCount({}), null);
-  assert.equal(rerankDocumentCount(null), null);
+test("rerankDocuments reads either field name, texts winning, else undefined", () => {
+  assert.deepEqual(rerankDocuments({ texts: ["a", "b"] }), ["a", "b"]);
+  assert.deepEqual(rerankDocuments({ documents: ["a"] }), ["a"]);
+  assert.deepEqual(rerankDocuments({ texts: ["a"], documents: ["a", "b"] }), ["a"]);
+  assert.deepEqual(rerankDocuments({ texts: [] }), []);
+  assert.equal(rerankDocuments({ texts: "a" }), "a");
+  assert.equal(rerankDocuments({}), undefined);
+  assert.equal(rerankDocuments(null), undefined);
+  assert.equal(rerankDocuments("aborted"), undefined);
+});
+
+test("a model id naming an Object.prototype member is a key, not the prototype", () => {
+  const models = Object.create(null);
+  for (const model of ["__proto__", "constructor", "toString", "valueOf", "hasOwnProperty"]) {
+    assert.doesNotThrow(() => recordStat(models, model, "http://a:80", 200, 5), model);
+    recordStat(models, model, "http://a:80", 500, 5);
+    recordStat(models, model, "http://b:80", 200, 5);
+  }
+  assert.equal(Object.prototype.requests, undefined);
+  assert.equal(Object.prototype.latencies, undefined);
+  assert.equal(({}).requests, undefined);
+  assert.deepEqual(Object.keys(models).sort(), [
+    "__proto__",
+    "constructor",
+    "hasOwnProperty",
+    "toString",
+    "valueOf",
+  ]);
+  assert.equal(models.__proto__.requests, 3);
+  assert.equal(models.__proto__.errors, 1);
+  assert.deepEqual(Object.keys(models.__proto__.backends).sort(), ["http://a:80", "http://b:80"]);
+});
+
+test("summarizeStats survives those same ids", () => {
+  const models = Object.create(null);
+  recordStat(models, "__proto__", "http://a:80", 200, 7);
+  const out = summarizeStats(models);
+  assert.equal(out.__proto__.requests, 1);
+  assert.equal(out.__proto__.p50_ms, 7);
+  assert.equal(JSON.parse(JSON.stringify(out)).__proto__.requests, 1);
 });
 
 test("setBackendPaths replaces per backend, and empty removes", () => {
@@ -238,8 +270,7 @@ test("summarizeStats hides samples, keeps counts and p50", () => {
   const models = {};
   recordStat(models, "m", "http://a:80", 200, 10);
   const view = summarizeStats(models);
-  assert.deepEqual(view, {
+  assert.deepEqual(JSON.parse(JSON.stringify(view)), {
     m: { requests: 1, errors: 0, p50_ms: 10, backends: { "http://a:80": { requests: 1, errors: 0, p50_ms: 10 } } },
   });
-  assert.equal(JSON.parse(JSON.stringify(view)).m.p50_ms, 10);
 });

@@ -19,11 +19,7 @@
 # so more than one image is refused rather than silently ignored.
 #
 # Apache-2.0 code and weights: unlike the Jina profiles, this service may serve.
-#
-# Readiness lives at /info, not /health: the router only registers a backend
-# whose /info names a model, so a model that is still loading is simply not
-# routable, while /health stays green for the compose healthcheck. A model that
-# fails to load exits the process, the way the TEI and vLLM services do.
+
 import os
 import shutil
 import tempfile
@@ -53,6 +49,8 @@ SERVED_ID = CKPT
 # Upstream's default image budget: 768 vision tokens.
 MAX_PIXELS = int(os.environ.get("OMNIJEV_MAX_PIXELS") or str(768 * 28 * 28))
 MAX_QUESTIONS = int(os.environ.get("OMNIJEV_MAX_QUESTIONS", "32"))
+# One crop per frame, so this bounds compute.
+MAX_VIDEO_FRAMES = int(os.environ.get("OMNIJEV_MAX_VIDEO_FRAMES", "16"))
 
 model: Optional[Any] = None
 # One model copy, one system_one at a time: the upstream wrapper keeps
@@ -85,17 +83,16 @@ app = stack_service.make_app(_load, "omnijev-load")
 
 @app.get("/info")
 def info():
-    if model is None:
-        return stack_service.error(503, "the model is still loading", "model_loading")
-    # TEI's /info shape. The router reads model_id from it and registers this
-    # container under that one model, on the next 30s scan.
-    return {
-        "model_id": SERVED_ID,
-        "model_dtype": str(model.dtype).replace("torch.", ""),
-        "device": str(model.dev),
-        "max_client_batch_size": MAX_QUESTIONS,
-        "paths": ["/v1/systemone"],
-    }
+    return stack_service.info_response(
+        loaded=model is not None,
+        model_id=SERVED_ID,
+        max_client_batch_size=MAX_QUESTIONS,
+        extra=lambda: {
+            "model_dtype": str(model.dtype).replace("torch.", ""),
+            "device": str(model.dev),
+            "paths": ["/v1/systemone"],
+        },
+    )
 
 
 @app.post("/v1/systemone")
@@ -144,7 +141,23 @@ def systemone(body: Dict[str, Any]):
             handle.write(decoded)
         call_state: Dict[str, Any] = {"images": [path]}
         if "video" in state:
-            call_state["video"] = state["video"]
+            video = state["video"]
+            # Upstream reads n_frames/cols/tile, so an unchecked value sets the
+            # crop count. This release reads a fixed shape; refuse the rest.
+            if not isinstance(video, dict):
+                return stack_service.error(
+                    400, "'state.video' must be an object.", "invalid_request_error"
+                )
+            for field in ("n_frames", "cols"):
+                value = video.get(field)
+                if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= MAX_VIDEO_FRAMES:
+                    return stack_service.error(
+                        400,
+                        "'state.video.%s' must be an integer between 1 and %d."
+                        % (field, MAX_VIDEO_FRAMES),
+                        "invalid_request_error",
+                    )
+            call_state["video"] = video
         with MODEL_LOCK:
             answers = model.system_one(call_state, questions)
     except (ValueError, KeyError, TypeError, RuntimeError, OSError) as exc:

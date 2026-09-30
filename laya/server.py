@@ -9,12 +9,7 @@
 #                        discovered exactly like a TEI slot — no router change.
 #   POST /v1/decisions   the native API ({state, questions}) for guardrails,
 #                        triage, moderation. The router forwards it verbatim.
-#
-# Readiness lives at /info, not /health: the router only registers a backend whose
-# /info names a model, so a model that is still loading is simply not routable,
-# while /health stays green for the compose healthcheck (see TUNING.md,
-# "Health checks"). A model that fails to load exits the process, so the container
-# shows an exit code the way the TEI and vLLM services do.
+
 import os
 import threading
 from typing import Any, Dict, Optional
@@ -84,17 +79,16 @@ app = stack_service.make_app(_load, "laya-load")
 
 @app.get("/info")
 def info():
-    if agent is None:
-        return stack_service.error(503, "the model is still loading", "model_loading")
-    # TEI's /info shape. The router reads model_id from it and registers this
-    # container under that one model, on the next 30s scan.
-    return {
-        "model_id": SERVED_ID,
-        "model_dtype": str(agent.dtype).replace("torch.", ""),
-        "device": str(agent.device),
-        "max_client_batch_size": MAX_TEXTS,
-        "paths": ["/rerank", "/v1/decisions"],
-    }
+    return stack_service.info_response(
+        loaded=agent is not None,
+        model_id=SERVED_ID,
+        max_client_batch_size=MAX_TEXTS,
+        extra=lambda: {
+            "model_dtype": str(agent.dtype).replace("torch.", ""),
+            "device": str(agent.device),
+            "paths": ["/rerank", "/v1/decisions"],
+        },
+    )
 
 
 def _scores(agent, query: str, texts: list) -> np.ndarray:
@@ -158,7 +152,7 @@ def rerank(body: Dict[str, Any]):
     try:
         with MODEL_LOCK:
             scores = _scores(agent, query, texts)
-    except ValueError as exc:
+    except (ValueError, KeyError, TypeError, RuntimeError, OSError) as exc:
         return stack_service.error(400, str(exc), "invalid_request_error")
     order = np.argsort(-scores, kind="stable")
     return {
@@ -198,5 +192,5 @@ def decisions(body: Dict[str, Any]):
     try:
         with MODEL_LOCK:
             return agent.predict(state, questions)
-    except (ValueError, KeyError, TypeError) as exc:
+    except (ValueError, KeyError, TypeError, RuntimeError, OSError) as exc:
         return stack_service.error(400, str(exc), "invalid_request_error")

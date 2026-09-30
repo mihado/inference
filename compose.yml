@@ -27,7 +27,7 @@ x-reranker: &reranker
       - --dtype
       - float16
       - --max-client-batch-size
-      - "64"
+      - "${MAX_CLIENT_BATCH_SIZE:-64}"
       - --max-batch-tokens
       - "8192"
 

@@ -18,12 +18,7 @@
 # returns the exact upstream response shape. This file owns only the bootstrap
 # (weights, skeleton, wrapped checkpoint — all idempotent, all into the shared
 # HF cache) and the stack surfaces. No outer lock: the engine locks internally.
-#
-# Readiness lives at /info, not /health: the router only registers a backend whose
-# /info names a model, so a model that is still loading is simply not routable,
-# while /health stays green for the compose healthcheck. A model that fails to
-# load exits the process, so the container shows an exit code the way the TEI
-# and vLLM services do.
+
 import os
 from typing import Any, Dict, Optional
 
@@ -90,17 +85,16 @@ app = stack_service.make_app(_load, "agentjev-load")
 
 @app.get("/info")
 def info():
-    if engine is None:
-        return stack_service.error(503, "the model is still loading", "model_loading")
-    # TEI's /info shape. The router reads model_id from it and registers this
-    # container under that one model, on the next 30s scan.
-    return {
-        "model_id": SERVED_ID,
-        "model_dtype": "bfloat16",
-        "device": engine.device,
-        "max_client_batch_size": MAX_TEXTS,
-        "paths": ["/rerank", "/api/evaluate"],
-    }
+    return stack_service.info_response(
+        loaded=engine is not None,
+        model_id=SERVED_ID,
+        max_client_batch_size=MAX_TEXTS,
+        extra=lambda: {
+            "model_dtype": "bfloat16",
+            "device": engine.device,
+            "paths": ["/rerank", "/api/evaluate"],
+        },
+    )
 
 
 @app.post("/rerank")
@@ -129,7 +123,7 @@ def rerank(body: Dict[str, Any]):
     }
     try:
         out = engine.evaluate(payload)
-    except (ValueError, TypeError, KeyError) as exc:
+    except (ValueError, KeyError, TypeError, RuntimeError, OSError) as exc:
         # ValueError is also the over-length refusal (>2048 tokens): an error,
         # never a silent truncation.
         return stack_service.error(400, str(exc), "invalid_request_error")
@@ -153,5 +147,5 @@ def api_evaluate(body: Dict[str, Any]):
         # The exact upstream response shape (api_version, results, usage):
         # prepare() ignores the router's `model` key like any unknown key.
         return engine.evaluate(body)
-    except (ValueError, TypeError, KeyError) as exc:
+    except (ValueError, KeyError, TypeError, RuntimeError, OSError) as exc:
         return stack_service.error(400, str(exc), "invalid_request_error")

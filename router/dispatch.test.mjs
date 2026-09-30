@@ -358,5 +358,58 @@ test("GET /health reports per-model and per-backend counts", async () => {
   assert.ok(Number.isFinite(rerank.p50_ms));
   assert.equal(Object.keys(rerank.backends).length, 2);
   assert.ok(body.stats["test-flaky"].errors >= 1);
-  assert.ok(body.stats["nope"].errors >= 1);
+});
+
+test("an unknown model id is answered 404 and never enters /health stats", async () => {
+  for (const model of ["nope", "probe-junk-1", "probe-junk-2", "__proto__", "constructor", "toString"]) {
+    const { status, body } = await post("/v1/embeddings", { model, input: "x" });
+    assert.equal(status, 404, model);
+    assert.equal(body.error.code, "model_not_found", model);
+  }
+  const health = await (await fetch(`${routerBase}/health`)).json();
+  for (const model of ["nope", "probe-junk-1", "probe-junk-2", "__proto__", "constructor", "toString"]) {
+    assert.equal(Object.hasOwn(health.stats, model), false, `${model} must not be recorded`);
+  }
+  assert.equal((await (await fetch(`${routerBase}/v1/models`)).json()).object, "list");
+  const ok = await post("/v1/embeddings", { model: "test-embed", input: "x" });
+  assert.equal(ok.status, 200);
+});
+
+test("a body that is the JSON string \"aborted\" is answered, not hung on", async () => {
+  for (const raw of ['"aborted"', '"too-large"']) {
+    const response = await fetch(`${routerBase}/v1/embeddings`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: raw,
+      signal: AbortSignal.timeout(4000),
+    });
+    assert.equal(response.status, 400, raw);
+    const body = await response.json();
+    assert.equal(body.error.code, "invalid_request_error", raw);
+  }
+});
+
+test("a malformed body on an advertised path is 400, not a 404 for the path", async () => {
+  for (const payload of [undefined, "not json at all", '{"no":"model"}']) {
+    const { status, body } = await post("/v1/novel", null, payload ?? "");
+    assert.equal(status, 400, String(payload));
+    assert.equal(body.error.type, "invalid_request_error", String(payload));
+  }
+  const ok = await post("/v1/novel", { model: "test-paths", anything: true });
+  assert.equal(ok.status, 200);
+  const missing = await post("/v1/never", { model: "test-paths" });
+  assert.equal(missing.status, 404);
+});
+
+test("a rerank document list that is not an array is refused, not forwarded uncounted", async () => {
+  for (const body of [
+    { model: "test-paths", query: "q", texts: "notarray", documents: Array(100).fill("d") },
+    { model: "test-paths", query: "q", texts: { a: 1 } },
+    { model: "test-rerank", query: "q", documents: 7 },
+  ]) {
+    const { status } = await post("/rerank", body);
+    assert.equal(status, 400, JSON.stringify(body));
+  }
+  const ok = await post("/rerank", { model: "test-paths", query: "q", texts: ["a", "b"] });
+  assert.equal(ok.status, 200);
 });
