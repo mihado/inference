@@ -4,6 +4,51 @@ This repository runs model servers on a 2x RTX A4000 box. A router puts them beh
 
 The rules for measurement and tuning are in [TUNING.md](TUNING.md); the measured numbers are in [docs/evaluation.md](docs/evaluation.md).
 
+## The stack
+
+```mermaid
+flowchart TB
+  client["Client<br/>HTTP, one address"]
+
+  router["router · 8100<br/>Node.js, no dependencies<br/>finds backends from docker.sock,<br/>re-reads every 30s<br/><br/>POST one of:<br/>/v1/embeddings<br/>/rerank<br/>/v1/rerank<br/>/v1/decisions<br/>/v1/systemone<br/>/v1/predict<br/>/api/evaluate"]
+
+  subgraph optional_profiles["optional profiles — one make up-* each"]
+    direction LR
+    qwen["qwen-embed · TEI<br/>8003 / 8004<br/>Qwen3-Embedding-0.6B"]
+    bakeoff["bake-off rerankers · TEI<br/>bge · ms-marco<br/>gte-multilingual · granite<br/>8096-8099<br/>GPU 0 only, no replica"]
+    dec["decision services · Python<br/>8041-8048<br/>omnijev /v1/systemone<br/>julia /v1/predict<br/>laya /v1/decisions<br/>agentjev /api/evaluate"]
+    jina["jina · jina-embed<br/>Python · 8092-8095<br/>non-commercial<br/>eval only, never serve"]
+  end
+
+  subgraph default_stack["default stack — make up"]
+    direction LR
+    reranker["reranker · TEI<br/>8021 / 8022<br/>Alibaba-NLP/gte-reranker-modernbert-base"]
+    voyage["voyage-embed · vLLM<br/>8001 / 8002<br/>voyageai/voyage-4-nano<br/>bf16: TEI gives NaN<br/>at fp16, OOM at fp32"]
+  end
+
+  ollama["ollama · 11434 · GGUF<br/>beside the router<br/>no discovery"]
+
+  router --> qwen
+  router --> bakeoff
+  router --> dec
+  router --> jina
+  router --> reranker
+  router --> voyage
+  client --> router
+  client -.->|"localhost only"| ollama
+
+  classDef entry fill:#e6eefa,stroke:#3a5a8a
+  classDef core fill:#e7f4e9,stroke:#3a7d44
+  classDef extra fill:#f6f1e4,stroke:#8a7a3a
+  class client,router entry
+  class reranker,voyage core
+  class qwen,bakeoff,dec,jina,ollama extra
+```
+
+Every backend port binds to `127.0.0.1`, so `8100` is the only way in from off-box. A port pair is one replica per GPU and the router alternates between them.
+
+An advertised path routes only to the backends that advertised it, so a Python service answers its own surface while TEI and vLLM, which omit `paths`, take the router's static set.
+
 The two servers are:
 
 - `reranker` — the local reranker.
