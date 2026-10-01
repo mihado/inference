@@ -10,31 +10,31 @@ The rules for measurement and tuning are in [TUNING.md](TUNING.md); the measured
 flowchart TB
   client["Client<br/>HTTP, one address"]
 
-  router["router :8100 — Node.js, no dependencies<br/>POST /v1/embeddings · /rerank · /v1/rerank · /v1/decisions<br/>/v1/systemone · /v1/predict · /api/evaluate<br/>finds backends from docker.sock, re-reads every 30s"]
-
-  subgraph default_stack["default stack — make up"]
-    direction LR
-    reranker["reranker · 8021 / 8022 · TEI<br/>Alibaba-NLP/gte-reranker-modernbert-base"]
-    voyage["voyage-embed · 8001 / 8002 · vLLM<br/>voyageai/voyage-4-nano<br/>bf16: TEI returns NaN at fp16, OOM at fp32"]
-  end
+  router["router · 8100<br/>Node.js, no dependencies<br/>finds backends from docker.sock,<br/>re-reads every 30s<br/><br/>POST one of:<br/>/v1/embeddings<br/>/rerank<br/>/v1/rerank<br/>/v1/decisions<br/>/v1/systemone<br/>/v1/predict<br/>/api/evaluate"]
 
   subgraph optional_profiles["optional profiles — one make up-* each"]
     direction LR
-    qwen["qwen-embed · 8003 / 8004 · TEI<br/>Qwen3-Embedding-0.6B"]
-    bakeoff["bake-off rerankers · 8096-8099 · TEI<br/>bge-v2-m3 · ms-marco-L6<br/>gte-multilingual · granite"]
-    dec["decision services · 8041-8048 · own Python<br/>omnijev /v1/systemone · julia /v1/predict<br/>laya /v1/decisions · agentjev /api/evaluate"]
-    jina["jina · jina-embed · 8092-8095 · own Python<br/>non-commercial — eval only, never serve"]
+    qwen["qwen-embed · TEI<br/>8003 / 8004<br/>Qwen3-Embedding-0.6B"]
+    bakeoff["bake-off rerankers · TEI<br/>bge · ms-marco<br/>gte-multilingual · granite<br/>8096-8099<br/>GPU 0 only, no replica"]
+    dec["decision services · Python<br/>8041-8048<br/>omnijev /v1/systemone<br/>julia /v1/predict<br/>laya /v1/decisions<br/>agentjev /api/evaluate"]
+    jina["jina · jina-embed<br/>Python · 8092-8095<br/>non-commercial<br/>eval only, never serve"]
   end
 
-  ollama["ollama · 11434 · GGUF<br/>beside the router, no discovery"]
+  subgraph default_stack["default stack — make up"]
+    direction LR
+    reranker["reranker · TEI<br/>8021 / 8022<br/>Alibaba-NLP/gte-reranker-modernbert-base"]
+    voyage["voyage-embed · vLLM<br/>8001 / 8002<br/>voyageai/voyage-4-nano<br/>bf16: TEI gives NaN<br/>at fp16, OOM at fp32"]
+  end
 
-  client --> router
-  router --> reranker
-  router --> voyage
+  ollama["ollama · 11434 · GGUF<br/>beside the router<br/>no discovery"]
+
   router --> qwen
   router --> bakeoff
   router --> dec
   router --> jina
+  router --> reranker
+  router --> voyage
+  client --> router
   client -.->|"localhost only"| ollama
 
   classDef entry fill:#e6eefa,stroke:#3a5a8a
@@ -45,9 +45,9 @@ flowchart TB
   class qwen,bakeoff,dec,jina,ollama extra
 ```
 
-Every backend port binds to `127.0.0.1`, so `8100` is the only way in from off-box. A port pair is one replica per GPU — first on GPU 0, second on GPU 1, and the router alternates between them; the bake-off rerankers are the exception, all four on GPU 0.
+Every backend port binds to `127.0.0.1`, so `8100` is the only way in from off-box. A port pair is one replica per GPU and the router alternates between them.
 
-An advertised path routes only to the backends that advertised it, so the Python services answer their own surface (`omnijev` → `/v1/systemone`, `julia` → `/v1/predict`) while TEI and vLLM, which omit `paths`, take the static set.
+An advertised path routes only to the backends that advertised it, so a Python service answers its own surface while TEI and vLLM, which omit `paths`, take the router's static set.
 
 The two servers are:
 
