@@ -4,6 +4,51 @@ This repository runs model servers on a 2x RTX A4000 box. A router puts them beh
 
 The rules for measurement and tuning are in [TUNING.md](TUNING.md); the measured numbers are in [docs/evaluation.md](docs/evaluation.md).
 
+## The stack
+
+```mermaid
+flowchart TB
+  client["Client<br/>HTTP, one address"]
+
+  router["router :8100 — Node.js, no dependencies<br/>POST /v1/embeddings · /rerank · /v1/rerank · /v1/decisions<br/>/v1/systemone · /v1/predict · /api/evaluate<br/>finds backends from docker.sock, re-reads every 30s"]
+
+  subgraph default_stack["default stack — make up"]
+    direction LR
+    reranker["reranker · 8021 / 8022 · TEI<br/>Alibaba-NLP/gte-reranker-modernbert-base"]
+    voyage["voyage-embed · 8001 / 8002 · vLLM<br/>voyageai/voyage-4-nano<br/>bf16: TEI returns NaN at fp16, OOM at fp32"]
+  end
+
+  subgraph optional_profiles["optional profiles — one make up-* each"]
+    direction LR
+    qwen["qwen-embed · 8003 / 8004 · TEI<br/>Qwen3-Embedding-0.6B"]
+    bakeoff["bake-off rerankers · 8096-8099 · TEI<br/>bge-v2-m3 · ms-marco-L6<br/>gte-multilingual · granite"]
+    dec["decision services · 8041-8048 · own Python<br/>omnijev /v1/systemone · julia /v1/predict<br/>laya /v1/decisions · agentjev /api/evaluate"]
+    jina["jina · jina-embed · 8092-8095 · own Python<br/>non-commercial — eval only, never serve"]
+  end
+
+  ollama["ollama · 11434 · GGUF<br/>beside the router, no discovery"]
+
+  client --> router
+  router --> reranker
+  router --> voyage
+  router --> qwen
+  router --> bakeoff
+  router --> dec
+  router --> jina
+  client -.->|"localhost only"| ollama
+
+  classDef entry fill:#e6eefa,stroke:#3a5a8a
+  classDef core fill:#e7f4e9,stroke:#3a7d44
+  classDef extra fill:#f6f1e4,stroke:#8a7a3a
+  class client,router entry
+  class reranker,voyage core
+  class qwen,bakeoff,dec,jina,ollama extra
+```
+
+Every backend port binds to `127.0.0.1`, so `8100` is the only way in from off-box. A port pair is one replica per GPU — first on GPU 0, second on GPU 1, and the router alternates between them; the bake-off rerankers are the exception, all four on GPU 0.
+
+An advertised path routes only to the backends that advertised it, so the Python services answer their own surface (`omnijev` → `/v1/systemone`, `julia` → `/v1/predict`) while TEI and vLLM, which omit `paths`, take the static set.
+
 The two servers are:
 
 - `reranker` — the local reranker.
