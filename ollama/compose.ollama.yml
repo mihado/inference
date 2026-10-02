@@ -30,10 +30,11 @@ services:
       retries: 5
       start_period: 120s
     ports:
-      # Loopback by default, unlike the router. OLLAMA_BIND=0.0.0.0 publishes
-      # this off-box for a client on another machine; it carries the whole
-      # /api/* surface and Ollama has no auth, so that is a deliberate act.
-      - "${OLLAMA_BIND:-127.0.0.1}:${PORT_OLLAMA:-11434}:11434"
+      # Every interface by default, unlike the backends: ollama is beside the
+      # router rather than behind it, so a client on another machine reaches it
+      # directly. OLLAMA_BIND=127.0.0.1 closes it to this box. There is no auth
+      # on /api/*, which pulls and deletes models as much as it runs them.
+      - "${OLLAMA_BIND:-0.0.0.0}:${PORT_OLLAMA:-11434}:11434"
     deploy:
       resources:
         reservations:
