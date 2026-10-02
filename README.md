@@ -10,7 +10,7 @@ The rules for measurement and tuning are in [TUNING.md](TUNING.md); the measured
 flowchart TB
   client["Client<br/>HTTP, one address"]
 
-  router["router · 8100<br/>Node.js, no dependencies<br/>finds backends from docker.sock,<br/>re-reads every 30s<br/><br/>POST one of:<br/>/v1/embeddings<br/>/rerank<br/>/v1/rerank<br/>/v1/decisions<br/>/v1/systemone<br/>/v1/predict<br/>/api/evaluate"]
+  router["router · 8100<br/>Node.js, no dependencies<br/>backends from docker.sock<br/>re-read every 30s<br/><br/>POST one of:<br/>/v1/embeddings<br/>/rerank<br/>/v1/rerank<br/>/v1/decisions<br/>/v1/systemone<br/>/v1/predict<br/>/api/evaluate"]
 
   subgraph optional_profiles["optional profiles — one make up-* each"]
     direction LR
@@ -26,7 +26,7 @@ flowchart TB
     voyage["voyage-embed · vLLM<br/>8001 / 8002<br/>voyageai/voyage-4-nano<br/>bf16: TEI gives NaN<br/>at fp16, OOM at fp32"]
   end
 
-  ollama["ollama · 11434 · GGUF<br/>beside the router<br/>no discovery"]
+  ollama["ollama · 11434 · GGUF<br/>beside the router<br/>no discovery label<br/>open to the network"]
 
   router --> qwen
   router --> bakeoff
@@ -35,7 +35,7 @@ flowchart TB
   router --> reranker
   router --> voyage
   client --> router
-  client -.->|"localhost only"| ollama
+  client -.->|"direct, not routed"| ollama
 
   classDef entry fill:#e6eefa,stroke:#3a5a8a
   classDef core fill:#e7f4e9,stroke:#3a7d44
@@ -132,7 +132,7 @@ make models
 make throughput
 ```
 
-One port must be open to the network: the router on 8100. Clients use the router only. They do not use a server port. Backend ports bind to localhost, so off-box traffic cannot bypass the router; direct ports remain for debugging from the box itself.
+Two ports are open to the network. The router on 8100 is the only way in for the serving fleet: clients use the router and never a server port, because every backend binds to localhost, so off-box traffic cannot bypass the router. Ollama on 11434 is the second. It sits beside the router rather than behind it and is published on every interface, so a client reaches it directly with the full `/api/*` surface — which has no authentication and covers pulling and deleting models, not just inference. `OLLAMA_BIND=127.0.0.1` closes it to this box.
 
 ## Router
 

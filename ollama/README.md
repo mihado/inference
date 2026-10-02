@@ -2,6 +2,8 @@
 
 Ollama runs GGUF models behind its own API, beside the router rather than behind it. One Ollama server holds many models with on-demand loading, while the router assumes one model per server with a static id — and the router buffers full responses, so token streaming would break passing through it. No label, no discovery, no streaming work: clients use port 11434 directly with the full `/api/*` surface. Reference only; rarely used these days.
 
+- The port publishes on every interface by default, so a client on another machine reaches it directly; `OLLAMA_BIND=127.0.0.1` in `.env` closes it to this box. Ollama has no auth and no TLS, and `/api/*` pulls and deletes models as well as running them — tunnel or proxy it if the box is reachable past the LAN.
+
 ```sh
 make up-ollama                                # the default stack plus Ollama
 make ollama-deps                              # pull every model in ollama/ollama.mk
