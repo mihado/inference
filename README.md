@@ -10,7 +10,7 @@ The rules for measurement and tuning are in [TUNING.md](TUNING.md); the measured
 flowchart TB
   client["Client<br/>HTTP, one address"]
 
-  router["router · 8100<br/>Node.js, no dependencies<br/>finds backends from docker.sock,<br/>re-reads every 30s<br/><br/>POST one of:<br/>/v1/embeddings<br/>/rerank<br/>/v1/rerank<br/>/v1/decisions<br/>/v1/systemone<br/>/v1/predict<br/>/api/evaluate"]
+  router["router · 8100<br/>Node.js, no dependencies<br/>backends from docker.sock<br/>re-read every 30s<br/><br/>POST one of:<br/>/v1/embeddings<br/>/rerank<br/>/v1/rerank<br/>/v1/decisions<br/>/v1/systemone<br/>/v1/predict<br/>/api/evaluate"]
 
   subgraph optional_profiles["optional profiles — one make up-* each"]
     direction LR
@@ -26,7 +26,7 @@ flowchart TB
     voyage["voyage-embed · vLLM<br/>8001 / 8002<br/>voyageai/voyage-4-nano<br/>bf16: TEI gives NaN<br/>at fp16, OOM at fp32"]
   end
 
-  ollama["ollama · 11434 · GGUF<br/>beside the router<br/>no discovery"]
+  ollama["ollama · 11434 · GGUF<br/>beside the router<br/>no discovery label<br/>loopback unless<br/>OLLAMA_BIND is set"]
 
   router --> qwen
   router --> bakeoff
@@ -35,7 +35,7 @@ flowchart TB
   router --> reranker
   router --> voyage
   client --> router
-  client -.->|"localhost only"| ollama
+  client -.->|"direct, not routed"| ollama
 
   classDef entry fill:#e6eefa,stroke:#3a5a8a
   classDef core fill:#e7f4e9,stroke:#3a7d44
@@ -133,6 +133,8 @@ make throughput
 ```
 
 One port must be open to the network: the router on 8100. Clients use the router only. They do not use a server port. Backend ports bind to localhost, so off-box traffic cannot bypass the router; direct ports remain for debugging from the box itself.
+
+Ollama is the exception, and only on request: it sits beside the router rather than behind it, so `OLLAMA_BIND=0.0.0.0` publishes 11434 off-box. Ollama has no authentication, and `/api/*` covers pulling and deleting models, not just inference.
 
 ## Router
 

@@ -30,7 +30,10 @@ services:
       retries: 5
       start_period: 120s
     ports:
-      - "127.0.0.1:${PORT_OLLAMA:-11434}:11434"
+      # Loopback by default, unlike the router. OLLAMA_BIND=0.0.0.0 publishes
+      # this off-box for a client on another machine; it carries the whole
+      # /api/* surface and Ollama has no auth, so that is a deliberate act.
+      - "${OLLAMA_BIND:-127.0.0.1}:${PORT_OLLAMA:-11434}:11434"
     deploy:
       resources:
         reservations:
