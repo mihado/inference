@@ -61,6 +61,18 @@
 - Any adapter whose probabilities gate actions — tool calls, merges, human escalation — gets the same treatment, or the gate is theater.
 - Probabilities you never act on can stay uncalibrated; probabilities you act on cannot.
 
+## Study order
+
+An order to work through these notes, tied to the box and the eval harness.
+
+1. **Concepts** (an evening) — the sections above: ΔW = B·A, rank as a bottleneck, when *not* to use LoRA, QLoRA's fit, DoRA as the upgrade.
+2. **Papers** (half a day) — LoRA, then QLoRA; skim DoRA. Links below.
+3. **The loop on your own data** (a weekend) — pick one typed decision from the product; baseline the base model through the eval harness on the golden set; train (rank 16–64, attention + MLP projections, lr ~2e-4, short warmup); evaluate on the same cases with a paired test — the harness is the judge.
+4. **Serving** (an evening) — vLLM `--enable-lora`; adapters are megabytes; merge into the base for zero latency if one adapter wins. Consider an adapter profile in the inference stack once something proves out.
+5. **Calibration** (only if probabilities gate actions) — Brier and ECE before and after; temperature per question type, fit on held-out cases.
+
+The one-line why: the harness turns "a LoRA model could be useful" into a measured claim — train, evaluate on the same held-out cases, and let the paired test decide.
+
 ## Learning resources
 
 - Papers: LoRA (https://arxiv.org/abs/2106.09685), QLoRA (https://arxiv.org/abs/2305.14314), DoRA (https://arxiv.org/abs/2402.10969).
