@@ -2,7 +2,7 @@
 
 This repository runs model servers on a 2x RTX A4000 box. A router puts them behind one address. Every model has a replica on each GPU, so the router can rotate a model's requests across both cards. The default stack is the MVP — `reranker` and `voyage-embed`; every optional service is a profile in its own compose file (see "Profiles").
 
-The rules for measurement and tuning are in [TUNING.md](TUNING.md); the measured numbers are in [docs/evaluation.md](docs/evaluation.md).
+The rules for measurement and tuning are in [TUNING.md](TUNING.md); the measured numbers are in [docs/evaluation.md](docs/evaluation.md); the vocabulary is in [docs/glossary.md](docs/glossary.md).
 
 ## The stack
 

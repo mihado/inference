@@ -1,6 +1,6 @@
 # eval/
 
-Fast reranker regression, not a serving decision.
+Fast reranker regression, not a serving decision. The vocabulary is defined in [`../docs/glossary.md`](../docs/glossary.md).
 
 - `golden.json` — 105 hand-built cases in the codex domain (alcohol beverage
   regulation), spanning licensing, hours, records, shipping, advertising, tax,
