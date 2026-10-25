@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26.12.1'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Node tests
+        run: node --test router/backends.test.mjs router/dispatch.test.mjs scripts/smoke-config.test.mjs scripts/compose-files.test.mjs eval/rank.test.mjs eval/compare.test.mjs
+      - name: Python tests (stack_service)
+        run: uv run --no-project --with fastapi python py-common/stack_service_test.py
+      - name: Python tests (services)
+        run: uv run --no-project --with fastapi --with httpx python py-common/services_test.py
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26.12.1'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Node syntax check
+        run: |
+          for f in $(find . -name '*.mjs' -not -path './.git/*'); do
+            node --check "$f" || exit 1
+          done
+      - name: Python lint (ruff)
+        run: |
+          uv tool install ruff
+          ruff check py-common agentjev jina jina-embed julia laya omnijev
+
+  cve:
+    name: CVE scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Trivy filesystem scan (IaC + Dockerfiles + compose)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+      - name: Upload Trivy filesystem SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-fs.sarif'
+          category: 'trivy-fs'
+      - name: Build and scan router image
+        run: docker build -t router:scan ./router
+      - name: Trivy router image scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'router:scan'
+          format: 'sarif'
+          output: 'trivy-router.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+      - name: Upload Trivy router SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-router.sarif'
+          category: 'trivy-router'
+      - name: pip-audit (Python deps, per service)
+        if: always()
+        run: |
+          for f in $(find . -name Dockerfile | sort); do
+            echo "=== $f ==="
+            python3 scripts/extract_python_deps.py --dockerfile "$f" > /tmp/reqs.txt
+            pip-audit -r /tmp/reqs.txt || true
+          done
+
+  cve-python-images:
+    name: CVE scan (Python service images)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [agentjev, jina, jina-embed, julia, laya, omnijev]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build service image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./${{ matrix.service }}/Dockerfile
+          push: false
+          load: true
+          tags: ${{ matrix.service }}:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: '${{ matrix.service }}:scan'
+          format: 'sarif'
+          output: 'trivy-${{ matrix.service }}.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-${{ matrix.service }}.sarif'
+          category: 'trivy-${{ matrix.service }}'

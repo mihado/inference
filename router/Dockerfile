@@ -1,4 +1,4 @@
-FROM node:24-alpine
+FROM node:26.12.1-alpine
 WORKDIR /app
 COPY index.mjs backends.mjs ./
 EXPOSE 80
