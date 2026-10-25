@@ -1,0 +1,40 @@
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Base images: node, python, ollama, TEI/vLLM (via compose), plus the
+    # service Dockerfiles under their own directories.
+  - package-ecosystem: "docker"
+    directory: "/router"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/agentjev"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/jina"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/jina-embed"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/julia"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/laya"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/omnijev"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker"
+    directory: "/ollama"
+    schedule:
+      interval: "weekly"
