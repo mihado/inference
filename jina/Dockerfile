@@ -8,7 +8,7 @@
 #
 # gcc + libc6-dev: the Triton kernel that compiles at the first CUDA request
 # needs a C compiler (docs/operations.md, "Gotchas").
-FROM python:3.12-slim
+FROM python:3.15-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
