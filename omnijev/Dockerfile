@@ -20,7 +20,7 @@
 #
 # Video states need ffmpeg and ffprobe on PATH; the first cut serves image
 # states, so they are intentionally not installed.
-FROM python:3.12-slim
+FROM python:3.15-slim
 WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git gcc libc6-dev \
